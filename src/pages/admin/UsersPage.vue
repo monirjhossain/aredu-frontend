@@ -5,12 +5,13 @@ import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const users = ref([])
 const roles = ref([])
 const message = ref('')
-const success = ref('')
 const loading = ref(true)
 const saving = ref(false)
 const dialog = ref(false)
@@ -53,15 +54,14 @@ async function saveUserRoles() {
   if (!editingUser.value) return
   saving.value = true
   formError.value = ''
-  success.value = ''
   try {
     const { data } = await http.put(`/admin/users/${editingUser.value.id}/roles`, {
       roles: selectedRoles.value,
-    }, { skipErrorToast: true })
+    }, { skipErrorToast: true, skipSuccessToast: true })
     const updated = data.data
     users.value = users.value.map((user) => (user.id === updated.id ? updated : user))
     dialog.value = false
-    success.value = t('userRolesSaved')
+    ui.success(t('userRolesSaved'))
   } catch (error) {
     formError.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -78,7 +78,6 @@ function initial(name) {
   <div class="admin-ui">
     <AdminPageHero :title="t('users')" :lead="t('usersLead')" />
 
-    <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
 
     <section class="admin-ui__panel">
       <div class="admin-ui__panel-head">

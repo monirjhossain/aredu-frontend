@@ -4,13 +4,14 @@ import { useI18n } from 'vue-i18n'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const payments = ref([])
 const loading = ref(true)
 const refundingId = ref(null)
 const message = ref('')
-const success = ref('')
 
 async function load() {
   loading.value = true
@@ -29,10 +30,9 @@ async function refund(payment) {
   if (!window.confirm(t('confirmRefund'))) return
   refundingId.value = payment.id
   message.value = ''
-  success.value = ''
   try {
-    await http.post(`/admin/payments/${payment.id}/refund`, {}, { skipErrorToast: true })
-    success.value = t('refundDone')
+    await http.post(`/admin/payments/${payment.id}/refund`, {}, { skipErrorToast: true, skipSuccessToast: true })
+    ui.success(t('refundDone'))
     await load()
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
@@ -54,7 +54,6 @@ function statusTone(status) {
   <div class="admin-ui">
     <AdminPageHero :title="t('managePayments')" :lead="t('paymentsLead')" />
 
-    <v-alert v-if="success" class="mb-4" type="success" variant="tonal">{{ success }}</v-alert>
 
     <section class="admin-ui__panel">
       <div class="admin-ui__panel-head">

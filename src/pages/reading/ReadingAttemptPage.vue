@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -169,7 +171,7 @@ async function saveAnswers(keepalive = false) {
     const { data } = await http.put(
       `/reading-attempts/${route.params.attemptId}/answers`,
       body,
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: true },
     )
     dirty = false
     if (data.data.attempt.status === 'submitted') {
@@ -199,12 +201,12 @@ async function submit(auto = false) {
     const { data } = await http.post(
       `/reading-attempts/${route.params.attemptId}/submit`,
       {},
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: auto },
     )
     applyPayload(data.data)
     stopTimers()
     if (auto) {
-      message.value = t('timeExpiredSubmitted')
+      ui.success(t('timeExpiredSubmitted'))
     }
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
@@ -238,7 +240,7 @@ function goRelative(delta) {
               <v-btn v-if="!isSubmitted" color="primary" :loading="submitting" @click="submit(false)">{{ t('submitTest') }}</v-btn>
             </div>
 
-            <v-alert v-if="message" :type="isSubmitted ? 'success' : 'error'" variant="tonal" class="mb-4">{{ message }}</v-alert>
+            <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
 
             <v-alert v-if="isSubmitted && payload.result" type="success" variant="tonal" class="mb-4">
               {{ t('yourScore') }}: {{ payload.result.raw_score }}/{{ payload.result.max_score }}

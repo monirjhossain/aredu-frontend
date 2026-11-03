@@ -5,8 +5,10 @@ import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 
 const roles = ref([])
 const modules = ref([])
@@ -15,7 +17,6 @@ const selectedSlugs = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const message = ref('')
-const success = ref('')
 const formError = ref('')
 const fieldErrors = ref({})
 
@@ -49,7 +50,6 @@ const moduleLabels = {
 onMounted(loadAll)
 watch(selectedRoleId, () => {
   selectedSlugs.value = [...(selectedRole.value?.permissions || [])]
-  success.value = ''
   message.value = ''
 })
 
@@ -130,7 +130,7 @@ async function saveRole() {
       const { data } = await http.put(`/admin/roles/${editingRole.value.id}`, {
         name: roleForm.name,
         slug: roleForm.slug,
-      }, { skipErrorToast: true })
+      }, { skipErrorToast: true, skipSuccessToast: true })
       const updated = data.data
       roles.value = roles.value.map((role) => (role.id === updated.id ? updated : role))
       selectedRoleId.value = updated.id
@@ -138,12 +138,12 @@ async function saveRole() {
       const { data } = await http.post('/admin/roles', {
         name: roleForm.name,
         slug: roleForm.slug,
-      }, { skipErrorToast: true })
+      }, { skipErrorToast: true, skipSuccessToast: true })
       roles.value = [...roles.value, data.data].sort((a, b) => a.name.localeCompare(b.name))
       selectedRoleId.value = data.data.id
     }
     roleDialog.value = false
-    success.value = t('roleSaved')
+    ui.success(t('roleSaved'))
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors
@@ -157,15 +157,14 @@ async function savePermissions() {
   if (!selectedRole.value) return
   saving.value = true
   message.value = ''
-  success.value = ''
   try {
     const { data } = await http.put(`/admin/roles/${selectedRole.value.id}/permissions`, {
       permissions: selectedSlugs.value,
-    }, { skipErrorToast: true })
+    }, { skipErrorToast: true, skipSuccessToast: true })
     const updated = data.data
     roles.value = roles.value.map((role) => (role.id === updated.id ? updated : role))
     selectedSlugs.value = [...(updated.permissions || [])]
-    success.value = t('permissionsSaved')
+    ui.success(t('permissionsSaved'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -196,14 +195,14 @@ async function confirmDelete() {
   deleting.value = true
   formError.value = ''
   try {
-    await http.delete(`/admin/roles/${deleteTarget.value.id}`, { skipErrorToast: true })
+    await http.delete(`/admin/roles/${deleteTarget.value.id}`, { skipErrorToast: true, skipSuccessToast: true })
     const removedId = deleteTarget.value.id
     roles.value = roles.value.filter((role) => role.id !== removedId)
     deleteTarget.value = null
     if (selectedRoleId.value === removedId) {
       selectedRoleId.value = roles.value[0]?.id || null
     }
-    success.value = t('roleDeleted')
+    ui.success(t('roleDeleted'))
   } catch (error) {
     formError.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -228,7 +227,6 @@ async function confirmDelete() {
     </AdminPageHero>
 
     <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-    <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
 
     <div v-if="loading" class="admin-ui__panel admin-ui__loading">
       <v-progress-circular indeterminate color="#0f5c66" size="36" />

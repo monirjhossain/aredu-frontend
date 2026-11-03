@@ -4,14 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
 const message = ref('')
-const actionMessage = ref('')
 const playback = ref(null)
 const lessonTitle = ref('')
 const completing = ref(false)
@@ -31,7 +32,6 @@ async function load() {
   stopHeartbeat()
   loading.value = true
   message.value = ''
-  actionMessage.value = ''
   playback.value = null
   progress.value = null
   courseProgress.value = null
@@ -82,7 +82,7 @@ async function savePosition(force = false) {
     const { data } = await http.put(
       `/lessons/${route.params.lessonId}/progress`,
       { position_seconds: position },
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: true },
     )
     progress.value = data.data.progress
     courseProgress.value = data.data.course_progress
@@ -97,23 +97,22 @@ async function savePosition(force = false) {
 
 async function markComplete() {
   completing.value = true
-  actionMessage.value = ''
   try {
     await savePosition(true)
     const { data } = await http.post(
       `/lessons/${route.params.lessonId}/progress/complete`,
       {},
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: true },
     )
     progress.value = data.data.progress
     courseProgress.value = data.data.course_progress
     certificate.value = data.data.certificate
     stopHeartbeat()
-    actionMessage.value = data.data.certificate
+    ui.success(data.data.certificate
       ? t('lessonCompletedWithCertificate')
-      : t('lessonCompleted')
+      : t('lessonCompleted'))
   } catch (error) {
-    actionMessage.value = apiError(error).message || t('requestFailed')
+    ui.toastError(apiError(error).message || t('requestFailed'))
   } finally {
     completing.value = false
   }
@@ -193,9 +192,6 @@ watch(() => [route.params.slug, route.params.lessonId], load)
                 {{ t('markLessonComplete') }}
               </v-btn>
             </div>
-            <v-alert v-if="actionMessage" :type="isCompleted ? 'success' : 'error'" variant="tonal" class="mb-2">
-              {{ actionMessage }}
-            </v-alert>
             <div v-if="courseProgress" class="text-body-2 text-medium-emphasis">
               {{ t('courseProgress') }}:
               {{ courseProgress.completed_lessons }}/{{ courseProgress.published_lessons }}

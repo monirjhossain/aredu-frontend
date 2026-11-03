@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { useLocaleStore } from '../../stores/locale'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const auth = useAuthStore()
 const localeStore = useLocaleStore()
 const { t } = useI18n()
+const ui = useUiStore()
 
 const profile = reactive({
   name: auth.user?.name || '',
@@ -23,8 +25,6 @@ const profileErrors = ref({})
 const passwordErrors = ref({})
 const profileMessage = ref('')
 const passwordMessage = ref('')
-const profileSuccess = ref('')
-const passwordSuccess = ref('')
 const savingProfile = ref(false)
 const savingPassword = ref(false)
 
@@ -47,10 +47,9 @@ onMounted(async () => {
 async function saveProfile() {
   profileErrors.value = {}
   profileMessage.value = ''
-  profileSuccess.value = ''
   savingProfile.value = true
   try {
-    profileSuccess.value = await auth.updateProfile({
+    await auth.updateProfile({
       name: profile.name,
       phone: profile.phone || null,
       locale: profile.locale,
@@ -68,10 +67,9 @@ async function saveProfile() {
 async function savePassword() {
   passwordErrors.value = {}
   passwordMessage.value = ''
-  passwordSuccess.value = ''
   savingPassword.value = true
   try {
-    passwordSuccess.value = await auth.changePassword({ ...passwordForm })
+    await auth.changePassword({ ...passwordForm })
     passwordForm.current_password = ''
     passwordForm.password = ''
     passwordForm.password_confirmation = ''
@@ -91,7 +89,6 @@ async function savePassword() {
       <v-card>
         <v-card-title>{{ t('account') }}</v-card-title>
         <v-card-text>
-          <v-alert v-if="profileSuccess" class="mb-4" type="success" variant="tonal">{{ profileSuccess }}</v-alert>
           <v-alert v-if="profileMessage" class="mb-4" type="error" variant="tonal">{{ profileMessage }}</v-alert>
           <v-form @submit.prevent="saveProfile">
             <v-text-field v-model="profile.name" :label="t('name')" :error-messages="profileErrors.name || []" />
@@ -111,7 +108,6 @@ async function savePassword() {
       <v-card>
         <v-card-title>{{ t('changePassword') }}</v-card-title>
         <v-card-text>
-          <v-alert v-if="passwordSuccess" class="mb-4" type="success" variant="tonal">{{ passwordSuccess }}</v-alert>
           <v-alert v-if="passwordMessage" class="mb-4" type="error" variant="tonal">{{ passwordMessage }}</v-alert>
           <v-form @submit.prevent="savePassword">
             <v-text-field

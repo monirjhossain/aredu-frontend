@@ -3,9 +3,11 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
+import { useUiStore } from '../../stores/ui'
 import { apiError } from '../../utils/apiError'
 
 const { t } = useI18n()
+const ui = useUiStore()
 
 const tab = ref('settings')
 const loading = ref(true)
@@ -103,9 +105,9 @@ async function saveSettings() {
         .filter((row) => row.url?.trim())
         .map((row) => ({ title: row.title?.trim() || 'Video', url: row.url.trim() })),
       ...settings.notification_preferences,
-    }, { skipErrorToast: true })
+    }, { skipErrorToast: true, skipSuccessToast: true })
     applySettings(data.data || {})
-    message.value = t('settingsSaved')
+    ui.success(t('settingsSaved'))
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors
@@ -122,10 +124,10 @@ async function uploadLogo() {
   try {
     const body = new FormData()
     body.append('logo', logoFile.value)
-    const { data } = await http.post('/admin/settings/logo', body, { skipErrorToast: true })
+    const { data } = await http.post('/admin/settings/logo', body, { skipErrorToast: true, skipSuccessToast: true })
     applySettings(data.data || {})
     logoFile.value = null
-    message.value = t('logoUpdated')
+    ui.success(t('logoUpdated'))
   } catch (error) {
     formError.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -137,9 +139,9 @@ async function removeLogo() {
   removingLogo.value = true
   formError.value = ''
   try {
-    const { data } = await http.delete('/admin/settings/logo', { skipErrorToast: true })
+    const { data } = await http.delete('/admin/settings/logo', { skipErrorToast: true, skipSuccessToast: true })
     applySettings(data.data || {})
-    message.value = t('logoRemoved')
+    ui.success(t('logoRemoved'))
   } catch (error) {
     formError.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -194,7 +196,7 @@ function applyLogFilter() {
       </template>
     </AdminPageHero>
 
-    <v-alert v-if="message" type="info" variant="tonal" class="mb-4" density="compact">{{ message }}</v-alert>
+    <v-alert v-if="message" type="error" variant="tonal" class="mb-4" density="compact">{{ message }}</v-alert>
     <v-alert v-if="formError" type="error" variant="tonal" class="mb-4" density="compact">{{ formError }}</v-alert>
 
     <section class="admin-ui__panel">

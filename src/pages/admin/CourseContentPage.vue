@@ -7,8 +7,10 @@ import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
 import { useAuthStore } from '../../stores/auth'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -41,7 +43,6 @@ const videoFile = ref(null)
 const coverFile = ref(null)
 const videoBusy = ref(false)
 const videoMessage = ref('')
-const videoSuccess = ref('')
 const pollTimer = ref(null)
 
 function coursePath() {
@@ -219,7 +220,6 @@ function openVideo(lesson) {
   videoFile.value = null
   coverFile.value = null
   videoMessage.value = ''
-  videoSuccess.value = ''
   videoDialog.value = true
   if (lesson.video && (lesson.video.status === 'uploading' || lesson.video.status === 'processing')) {
     startPolling(lesson.id)
@@ -246,6 +246,7 @@ async function uploadCover(lessonId) {
   body.append('cover', file)
   const { data } = await http.post(`/admin/lessons/${lessonId}/video/cover`, body, {
     skipErrorToast: true,
+    skipSuccessToast: true,
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   coverFile.value = null
@@ -264,11 +265,10 @@ async function uploadVideo() {
   if (!file && cover && lesson.video) {
     videoBusy.value = true
     videoMessage.value = ''
-    videoSuccess.value = ''
     try {
       const video = await uploadCover(lesson.id)
       lesson.video = video
-      videoSuccess.value = t('videoCoverSaved')
+      ui.success(t('videoCoverSaved'))
       await load()
     } catch (error) {
       videoMessage.value = apiError(error).message || t('videoCoverFailed')
@@ -284,9 +284,8 @@ async function uploadVideo() {
 
   videoBusy.value = true
   videoMessage.value = ''
-  videoSuccess.value = ''
   try {
-    const { data } = await http.post(`/admin/lessons/${lesson.id}/video`, {}, { skipErrorToast: true })
+    const { data } = await http.post(`/admin/lessons/${lesson.id}/video`, {}, { skipErrorToast: true, skipSuccessToast: true })
     const uploadUrl = data.data.upload_url
     const response = await fetch(uploadUrl, {
       method: 'POST',
@@ -309,7 +308,7 @@ async function uploadVideo() {
       video = await uploadCover(lesson.id)
     }
     lesson.video = video
-    videoSuccess.value = cover ? t('videoUploadStartedWithCover') : t('videoUploadStarted')
+    ui.success(cover ? t('videoUploadStartedWithCover') : t('videoUploadStarted'))
     videoFile.value = null
     startPolling(lesson.id)
     await load()
@@ -328,9 +327,9 @@ async function removeCover() {
   videoBusy.value = true
   videoMessage.value = ''
   try {
-    const { data } = await http.delete(`/admin/lessons/${lesson.id}/video/cover`, { skipErrorToast: true })
+    const { data } = await http.delete(`/admin/lessons/${lesson.id}/video/cover`, { skipErrorToast: true, skipSuccessToast: true })
     lesson.video = data.data
-    videoSuccess.value = t('videoCoverRemoved')
+    ui.success(t('videoCoverRemoved'))
     await load()
   } catch (error) {
     videoMessage.value = apiError(error).message || t('videoCoverFailed')
@@ -341,6 +340,7 @@ async function removeCover() {
 
 function startPolling(lessonId) {
   stopPolling()
+  let waitingNotified = false
   pollTimer.value = window.setInterval(async () => {
     try {
       const { data } = await http.get(`/admin/lessons/${lessonId}/video`, { skipErrorToast: true, skipAuthRedirect: true })
@@ -357,13 +357,14 @@ function startPolling(lessonId) {
       if (!video || video.status === 'ready' || video.status === 'failed') {
         stopPolling()
         if (video?.status === 'ready') {
-          videoSuccess.value = t('videoReady')
+          ui.success(t('videoReady'))
         }
         if (video?.status === 'failed') {
           videoMessage.value = video.error_message || t('videoFailed')
         }
-      } else {
-        videoSuccess.value = t('videoWaiting')
+      } else if (!waitingNotified) {
+        waitingNotified = true
+        ui.info(t('videoWaiting'))
       }
     } catch {
       stopPolling()
@@ -547,7 +548,6 @@ onBeforeUnmount(stopPolling)
         class="mb-3 rounded"
         cover
       />
-      <v-alert v-if="videoSuccess" class="mb-3" type="success" variant="tonal">{{ videoSuccess }}</v-alert>
       <v-alert v-if="videoMessage" class="mb-3" type="error" variant="tonal">{{ videoMessage }}</v-alert>
       <v-file-input
         v-if="canReplace(videoTarget?.video)"

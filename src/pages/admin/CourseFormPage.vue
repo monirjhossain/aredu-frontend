@@ -5,8 +5,10 @@ import { useI18n } from 'vue-i18n'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -20,7 +22,6 @@ const file = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const message = ref('')
-const success = ref('')
 const fieldErrors = ref({})
 
 const form = reactive({
@@ -88,13 +89,11 @@ function payload() {
 async function save() {
   saving.value = true
   message.value = ''
-  success.value = ''
   fieldErrors.value = {}
   try {
     if (editing.value) {
       const { data } = await http.put(`/admin/courses/${route.params.id}`, payload(), { skipErrorToast: true })
       fill(data.data)
-      success.value = data.message
     } else {
       const { data } = await http.post('/admin/courses', payload(), { skipErrorToast: true })
       router.push({ name: 'admin-course-edit', params: { id: data.data.id } })
@@ -119,7 +118,6 @@ async function uploadThumbnail() {
     const { data } = await http.post(`/admin/courses/${route.params.id}/thumbnail`, body, { skipErrorToast: true })
     thumbnailUrl.value = data.data.thumbnail_url
     file.value = null
-    success.value = data.message
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors
@@ -144,7 +142,6 @@ async function removeThumbnail() {
 async function saveTeachers() {
   saving.value = true
   message.value = ''
-  success.value = ''
   try {
     const { data } = await http.put(`/admin/courses/${route.params.id}/teachers`, {
       teachers: selectedTeachers.value.map((id) => ({
@@ -153,7 +150,6 @@ async function saveTeachers() {
       })),
     }, { skipErrorToast: true })
     fill(data.data)
-    success.value = data.message
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors
@@ -197,7 +193,6 @@ async function saveTeachers() {
       <v-progress-circular indeterminate color="#0f5c66" size="36" />
     </div>
     <template v-else>
-      <v-alert v-if="success" class="mb-4" type="success" variant="tonal">{{ success }}</v-alert>
       <v-alert v-if="message" class="mb-4" type="error" variant="tonal">{{ message }}</v-alert>
       <v-row>
         <v-col cols="12" md="7">

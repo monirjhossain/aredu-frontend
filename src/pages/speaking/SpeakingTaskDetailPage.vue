@@ -5,8 +5,10 @@ import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const auth = useAuthStore()
 
@@ -16,7 +18,6 @@ const loading = ref(true)
 const uploading = ref(false)
 const submitting = ref(false)
 const message = ref('')
-const success = ref('')
 const recorderSupported = ref(typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia)
 const mediaRecorder = ref(null)
 const mediaStream = ref(null)
@@ -125,7 +126,6 @@ async function loadServerAudio(url) {
 async function startRecording() {
   if (!recorderSupported.value || locked.value || isRecording.value) return
   message.value = ''
-  success.value = ''
   chunks.value = []
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -164,15 +164,14 @@ function stopRecording() {
 async function uploadBlob(blob, durationSeconds) {
   uploading.value = true
   message.value = ''
-  success.value = ''
   try {
     const body = new FormData()
     const ext = (blob.type || '').includes('ogg') ? 'ogg' : 'webm'
     body.append('recording', blob, `speaking.${ext}`)
     if (durationSeconds) body.append('duration_seconds', String(durationSeconds))
-    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording`, body, { skipErrorToast: true })
+    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording`, body, { skipErrorToast: true, skipSuccessToast: true })
     recording.value = data.data
-    success.value = t('recordingUploaded')
+    ui.success(t('recordingUploaded'))
     if (data.data.audio_url) await loadServerAudio(data.data.audio_url)
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
@@ -192,11 +191,10 @@ async function submitRecording() {
   if (!canSubmit.value) return
   submitting.value = true
   message.value = ''
-  success.value = ''
   try {
-    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording/submit`, {}, { skipErrorToast: true })
+    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording/submit`, {}, { skipErrorToast: true, skipSuccessToast: true })
     recording.value = data.data
-    success.value = t('recordingSubmitted')
+    ui.success(t('recordingSubmitted'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -219,7 +217,6 @@ async function submitRecording() {
             </p>
 
             <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-            <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
             <v-alert v-if="locked" type="info" variant="tonal" class="mb-4">{{ t('speakingLocked') }}</v-alert>
 
             <p v-if="task.instructions" class="mb-4" style="white-space: pre-wrap">{{ task.instructions }}</p>

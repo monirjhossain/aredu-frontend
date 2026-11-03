@@ -4,15 +4,16 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const auth = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
+const ui = useUiStore()
 
 const email = ref('')
 const errors = ref({})
 const message = ref('')
-const success = ref('')
 const submitting = ref(false)
 
 function withRedirect(name) {
@@ -26,10 +27,9 @@ function withRedirect(name) {
 async function submit() {
   errors.value = {}
   message.value = ''
-  success.value = ''
   submitting.value = true
   try {
-    success.value = await auth.forgotPassword(email.value)
+    await auth.forgotPassword(email.value)
   } catch (error) {
     const parsed = apiError(error)
     errors.value = parsed.errors
@@ -53,7 +53,6 @@ async function submit() {
         <h2>{{ t('sendResetLink') }}</h2>
         <p class="auth-panel__lead">{{ t('forgotPasswordFormLead') }}</p>
 
-        <div v-if="success" class="auth-alert auth-alert--ok">{{ success }}</div>
         <div v-if="message" class="auth-alert auth-alert--error">{{ message }}</div>
 
         <form class="auth-form" @submit.prevent="submit">

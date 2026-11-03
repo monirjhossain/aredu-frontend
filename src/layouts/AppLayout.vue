@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
+import AppToasts from '../components/AppToasts.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 import { useAuthStore } from '../stores/auth'
 import { useLocaleStore } from '../stores/locale'
@@ -57,15 +58,6 @@ async function logout() {
   landingMenuOpen.value = false
   router.push({ name: 'home' })
 }
-
-const showError = computed({
-  get: () => ui.error !== '',
-  set: (open) => {
-    if (!open) {
-      ui.clearError()
-    }
-  },
-})
 
 function navActive(name) {
   return route.name === name
@@ -470,9 +462,7 @@ function navActive(name) {
       </v-container>
     </v-main>
 
-    <v-snackbar v-model="showError" color="error" timeout="4000">
-      {{ ui.error }}
-    </v-snackbar>
+    <AppToasts />
   </v-app>
 </template>
 

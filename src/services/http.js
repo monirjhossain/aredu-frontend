@@ -17,6 +17,10 @@ export function bindAuth(handlers) {
   handleUnauthorized = handlers.onUnauthorized
 }
 
+function isMutating(method) {
+  return ['post', 'put', 'patch', 'delete'].includes(String(method || '').toLowerCase())
+}
+
 export function setupHttp() {
   http.interceptors.request.use((config) => {
     useUiStore().startLoading()
@@ -30,6 +34,15 @@ export function setupHttp() {
   http.interceptors.response.use(
     (response) => {
       useUiStore().stopLoading()
+
+      const config = response.config || {}
+      if (isMutating(config.method) && !config.skipSuccessToast) {
+        const message = response.data?.message
+        if (typeof message === 'string' && message.trim()) {
+          useUiStore().success(message)
+        }
+      }
+
       return response
     },
     (error) => {

@@ -5,8 +5,10 @@ import { useI18n } from 'vue-i18n'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -26,7 +28,6 @@ const file = ref(null)
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
-const success = ref('')
 const fieldErrors = ref({})
 
 const examTypes = computed(() => [
@@ -59,7 +60,6 @@ watch(() => form.value.task_type, (type) => {
 
 async function load() {
   message.value = ''
-  success.value = ''
   fieldErrors.value = {}
   if (!isEdit.value) return
   loading.value = true
@@ -87,7 +87,6 @@ async function load() {
 async function save() {
   saving.value = true
   message.value = ''
-  success.value = ''
   fieldErrors.value = {}
   const payload = {
     title: form.value.title,
@@ -101,10 +100,11 @@ async function save() {
   }
   try {
     if (isEdit.value) {
-      await http.put(`/admin/writing-tasks/${route.params.id}`, payload, { skipErrorToast: true })
-      success.value = t('saved')
+      await http.put(`/admin/writing-tasks/${route.params.id}`, payload, { skipErrorToast: true, skipSuccessToast: true })
+      ui.success(t('saved'))
     } else {
-      const { data } = await http.post('/admin/writing-tasks', payload, { skipErrorToast: true })
+      const { data } = await http.post('/admin/writing-tasks', payload, { skipErrorToast: true, skipSuccessToast: true })
+      ui.success(t('saved'))
       router.push({ name: 'admin-writing-task-edit', params: { id: data.data.id } })
     }
   } catch (error) {
@@ -127,7 +127,6 @@ async function uploadImage() {
     const { data } = await http.post(`/admin/writing-tasks/${route.params.id}/image`, body, { skipErrorToast: true })
     imageUrl.value = data.data.image_url
     file.value = null
-    success.value = data.message
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors || {}
@@ -171,7 +170,6 @@ async function removeImage() {
     </div>
     <template v-else>
       <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-      <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
 
       <section class="admin-ui__panel">
         <div class="admin-ui__panel-head">

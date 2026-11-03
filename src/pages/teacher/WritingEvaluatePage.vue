@@ -4,8 +4,10 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 
 const submission = ref(null)
@@ -20,7 +22,6 @@ const form = ref({
 const loading = ref(true)
 const saving = ref(false)
 const message = ref('')
-const success = ref('')
 const fieldErrors = ref({})
 
 const bandOptions = computed(() => {
@@ -38,7 +39,6 @@ onMounted(load)
 async function load() {
   loading.value = true
   message.value = ''
-  success.value = ''
   try {
     const { data } = await http.get(`/teacher/writing-submissions/${route.params.id}`, { skipErrorToast: true })
     submission.value = data.data
@@ -62,7 +62,6 @@ async function load() {
 async function save() {
   saving.value = true
   message.value = ''
-  success.value = ''
   fieldErrors.value = {}
   const payload = {
     task_response: Number(form.value.task_response),
@@ -77,26 +76,26 @@ async function save() {
       const { data } = await http.put(
         `/teacher/writing-evaluations/${submission.value.evaluation.id}`,
         payload,
-        { skipErrorToast: true },
+        { skipErrorToast: true, skipSuccessToast: true },
       )
       submission.value = {
         ...submission.value,
         evaluation: data.data,
         evaluation_status: 'evaluated',
       }
-      success.value = t('evaluationUpdated')
+      ui.success(t('evaluationUpdated'))
     } else {
       const { data } = await http.post(
         `/teacher/writing-submissions/${route.params.id}/evaluate`,
         payload,
-        { skipErrorToast: true },
+        { skipErrorToast: true, skipSuccessToast: true },
       )
       submission.value = {
         ...submission.value,
         evaluation: data.data,
         evaluation_status: 'evaluated',
       }
-      success.value = t('evaluationReturnedMsg')
+      ui.success(t('evaluationReturnedMsg'))
     }
   } catch (error) {
     const parsed = apiError(error)
@@ -127,7 +126,6 @@ function taskTypeLabel(value) {
             </p>
 
             <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-            <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
 
             <v-card variant="outlined" class="mb-4">
               <v-card-title>{{ t('writingPrompt') }}</v-card-title>

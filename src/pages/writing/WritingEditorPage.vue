@@ -4,8 +4,10 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 
 const task = ref(null)
@@ -18,7 +20,6 @@ const loading = ref(true)
 const saving = ref(false)
 const submitting = ref(false)
 const message = ref('')
-const success = ref('')
 let saveTimer = null
 
 const locked = computed(() => status.value === 'submitted')
@@ -52,7 +53,6 @@ function taskTypeLabel(value) {
 async function load() {
   loading.value = true
   message.value = ''
-  success.value = ''
   try {
     const [taskRes, submissionRes] = await Promise.all([
       http.get(`/writing-tasks/${route.params.id}`, { skipErrorToast: true }),
@@ -77,17 +77,16 @@ async function saveDraft(silent = false) {
   saving.value = true
   if (!silent) {
     message.value = ''
-    success.value = ''
   }
   try {
     const { data } = await http.put(
       `/writing-tasks/${route.params.id}/submission`,
       { body: body.value },
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: true },
     )
     status.value = data.data.status
     serverWordCount.value = data.data.word_count
-    if (!silent) success.value = t('draftSaved')
+    if (!silent) ui.success(t('draftSaved'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -99,18 +98,17 @@ async function submit() {
   if (locked.value || !task.value) return
   submitting.value = true
   message.value = ''
-  success.value = ''
   try {
     const { data } = await http.post(
       `/writing-tasks/${route.params.id}/submission/submit`,
       { body: body.value },
-      { skipErrorToast: true },
+      { skipErrorToast: true, skipSuccessToast: true },
     )
     status.value = data.data.status
     submittedAt.value = data.data.submitted_at
     serverWordCount.value = data.data.word_count
     body.value = data.data.body || body.value
-    success.value = t('writingSubmitted')
+    ui.success(t('writingSubmitted'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -133,7 +131,6 @@ async function submit() {
             </p>
 
             <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-            <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
             <v-alert v-if="locked" type="info" variant="tonal" class="mb-4">{{ t('writingLocked') }}</v-alert>
 
             <v-card variant="outlined" class="mb-4">

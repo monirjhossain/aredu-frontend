@@ -4,15 +4,16 @@ import { useI18n } from 'vue-i18n'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const moduleName = ref('reading')
 const examType = ref('academic')
 const rows = ref([{ raw_score: '', band_score: '' }])
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
-const success = ref('')
 
 const examTypes = computed(() => [
   { title: t('academic'), value: 'academic' },
@@ -29,7 +30,6 @@ watch([moduleName, examType], load)
 async function load() {
   loading.value = true
   message.value = ''
-  success.value = ''
   try {
     const { data } = await http.get('/admin/band-conversions', {
       params: { module: moduleName.value, exam_type: examType.value },
@@ -61,7 +61,6 @@ function removeRow(index) {
 async function save() {
   saving.value = true
   message.value = ''
-  success.value = ''
   try {
     const payloadRows = rows.value
       .filter((row) => row.raw_score !== '' && row.band_score !== '')
@@ -73,13 +72,13 @@ async function save() {
       module: moduleName.value,
       exam_type: examType.value,
       rows: payloadRows,
-    }, { skipErrorToast: true })
+    }, { skipErrorToast: true, skipSuccessToast: true })
     rows.value = data.data.rows.map((row) => ({
       raw_score: row.raw_score,
       band_score: row.band_score,
     }))
     if (rows.value.length === 0) rows.value = [{ raw_score: '', band_score: '' }]
-    success.value = t('bandTableSaved')
+    ui.success(t('bandTableSaved'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -138,7 +137,6 @@ async function save() {
       </div>
       <template v-else>
         <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-        <v-alert v-if="success" type="success" variant="tonal" class="mb-4">{{ success }}</v-alert>
         <div class="admin-ui__list">
           <article v-for="(row, index) in rows" :key="index" class="admin-ui__row">
             <div class="admin-ui__row-main">

@@ -3,17 +3,17 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
+import { useUiStore } from '../../stores/ui'
 import { apiError } from '../../utils/apiError'
 
 const { t } = useI18n()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const orders = ref([])
 const loading = ref(true)
 const payingKey = ref('')
 const message = ref('')
-const notice = ref('')
-
 const paymentNotice = computed(() => {
   const status = route.query.payment
   if (status === 'success') return t('paymentSuccess')
@@ -38,7 +38,6 @@ async function load() {
 async function pay(order, gateway) {
   payingKey.value = `${order.id}:${gateway}`
   message.value = ''
-  notice.value = ''
   try {
     const path = gateway === 'bkash'
       ? `/orders/${order.id}/payments/bkash`
@@ -56,7 +55,12 @@ async function pay(order, gateway) {
 }
 
 onMounted(async () => {
-  notice.value = paymentNotice.value
+  const status = route.query.payment
+  if (paymentNotice.value) {
+    if (status === 'success') ui.success(paymentNotice.value)
+    else if (status === 'failed') ui.toastError(paymentNotice.value)
+    else ui.info(paymentNotice.value)
+  }
   await load()
 })
 </script>
@@ -64,9 +68,6 @@ onMounted(async () => {
 <template>
 <div>
     <h1 class="text-h5 mb-4">{{ t('myOrders') }}</h1>
-          <v-alert v-if="notice" class="mb-4" :type="route.query.payment === 'success' ? 'success' : 'info'" variant="tonal">
-            {{ notice }}
-          </v-alert>
           <v-progress-circular v-if="loading" indeterminate color="primary" />
           <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
           <v-alert v-else-if="orders.length === 0" type="info" variant="tonal">{{ t('noOrders') }}</v-alert>

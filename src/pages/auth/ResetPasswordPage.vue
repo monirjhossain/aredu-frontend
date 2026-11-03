@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const ui = useUiStore()
 
 const form = reactive({
   email: typeof route.query.email === 'string' ? route.query.email : '',
@@ -17,17 +19,15 @@ const form = reactive({
 })
 const errors = ref({})
 const message = ref('')
-const success = ref('')
 const submitting = ref(false)
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 
 async function submit() {
   errors.value = {}
   message.value = ''
-  success.value = ''
   submitting.value = true
   try {
-    success.value = await auth.resetPassword({
+    await auth.resetPassword({
       token,
       email: form.email,
       password: form.password,
@@ -58,7 +58,6 @@ async function submit() {
         <p class="auth-panel__lead">{{ t('resetPasswordFormLead') }}</p>
 
         <div v-if="!token" class="auth-alert auth-alert--warn">{{ t('resetLinkMissing') }}</div>
-        <div v-if="success" class="auth-alert auth-alert--ok">{{ success }}</div>
         <div v-if="message" class="auth-alert auth-alert--error">{{ message }}</div>
 
         <form class="auth-form" @submit.prevent="submit">
