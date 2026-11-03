@@ -465,7 +465,7 @@ function navActive(name) {
 
     <v-main>
       <router-view v-if="isLanding" />
-      <v-container v-else class="py-4 py-md-6">
+      <v-container v-else class="admin-main-wrap py-3 py-md-4" fluid>
         <router-view />
       </v-container>
     </v-main>
@@ -547,5 +547,10 @@ function navActive(name) {
 
 .admin-drawer__user .text-caption {
   color: rgba(247, 249, 252, 0.72);
+}
+
+.admin-main-wrap {
+  max-width: 1180px;
+  margin-inline: auto;
 }
 </style>
