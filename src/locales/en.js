@@ -134,6 +134,7 @@ export default {
   edit: 'Edit',
   delete: 'Delete',
   cancel: 'Cancel',
+  warning: 'Warning',
   newCourse: 'New course',
   editCourse: 'Edit course',
   description: 'Description',

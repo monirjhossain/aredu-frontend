@@ -134,6 +134,7 @@ export default {
   edit: 'সম্পাদনা',
   delete: 'মুছুন',
   cancel: 'বাতিল',
+  warning: 'সতর্কতা',
   newCourse: 'নতুন কোর্স',
   editCourse: 'কোর্স সম্পাদনা',
   description: 'বিবরণ',

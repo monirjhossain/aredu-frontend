@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
@@ -174,36 +175,44 @@ async function confirmDelete() {
       </div>
     </section>
 
-    <v-dialog v-model="dialog" max-width="480">
-      <v-card rounded="lg">
-        <v-card-title>{{ editingId ? t('editCategory') : t('newCategory') }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="formError && dialog" class="mb-4" type="error" variant="tonal">{{ formError }}</v-alert>
-          <v-form @submit.prevent="save">
-            <v-text-field v-model="form.name" :label="t('name')" :error-messages="fieldErrors.name || []" />
-            <v-text-field v-model="form.slug" :label="t('slug')" :error-messages="fieldErrors.slug || []" />
-            <div class="d-flex justify-end ga-2">
-              <v-btn variant="text" @click="dialog = false">{{ t('cancel') }}</v-btn>
-              <v-btn color="#0f5c66" type="submit" :loading="saving">{{ t('save') }}</v-btn>
-            </div>
-          </v-form>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      :model-value="dialog"
+      :title="editingId ? t('editCategory') : t('newCategory')"
+      :max-width="480"
+      @update:model-value="dialog = $event"
+    >
+      <v-alert v-if="formError && dialog" class="mb-3" type="error" variant="tonal">{{ formError }}</v-alert>
+      <form class="admin-ui__form-grid" @submit.prevent="save">
+        <label class="admin-ui__field">
+          <span>{{ t('name') }}</span>
+          <input v-model="form.name" type="text" required>
+          <small v-if="fieldErrors.name?.length" style="color:#e85d4c">{{ fieldErrors.name[0] }}</small>
+        </label>
+        <label class="admin-ui__field">
+          <span>{{ t('slug') }}</span>
+          <input v-model="form.slug" type="text">
+          <small v-if="fieldErrors.slug?.length" style="color:#e85d4c">{{ fieldErrors.slug[0] }}</small>
+        </label>
+      </form>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="dialog = false">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="saving" @click="save">{{ t('save') }}</button>
+      </template>
+    </AdminDialog>
 
-    <v-dialog :model-value="deleteTarget !== null" max-width="420" @update:model-value="deleteTarget = null">
-      <v-card rounded="lg">
-        <v-card-title>{{ t('deleteCategory') }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="formError" class="mb-4" type="error" variant="tonal">{{ formError }}</v-alert>
-          {{ t('confirmDeleteCategory', { name: deleteTarget?.name || '' }) }}
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="deleteTarget = null">{{ t('cancel') }}</v-btn>
-          <v-btn color="error" :loading="deleting" @click="confirmDelete">{{ t('delete') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      :model-value="deleteTarget !== null"
+      :title="t('deleteCategory')"
+      :max-width="420"
+      danger
+      @update:model-value="(open) => { if (!open) deleteTarget = null }"
+    >
+      <v-alert v-if="formError" class="mb-3" type="error" variant="tonal">{{ formError }}</v-alert>
+      <p class="admin-dialog__text">{{ t('confirmDeleteCategory', { name: deleteTarget?.name || '' }) }}</p>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="deleteTarget = null">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--danger" :disabled="deleting" @click="confirmDelete">{{ t('delete') }}</button>
+      </template>
+    </AdminDialog>
   </div>
 </template>

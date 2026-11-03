@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
@@ -478,121 +479,142 @@ onBeforeUnmount(stopPolling)
       </div>
     </section>
 
-      <v-dialog v-model="sectionDialog" max-width="480">
-        <v-card>
-          <v-card-title>{{ sectionForm.id ? t('editSection') : t('newSection') }}</v-card-title>
-          <v-card-text>
-            <v-alert v-if="dialogError" class="mb-4" type="error" variant="tonal">{{ dialogError }}</v-alert>
-            <v-form @submit.prevent="saveSection">
-              <v-text-field v-model="sectionForm.title" :label="t('name')" :error-messages="fieldErrors.title || []" />
-              <v-btn color="primary" type="submit" :loading="saving">{{ t('save') }}</v-btn>
-            </v-form>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+    <AdminDialog
+      v-model="sectionDialog"
+      :title="sectionForm.id ? t('editSection') : t('newSection')"
+      :max-width="480"
+    >
+      <v-alert v-if="dialogError" class="mb-3" type="error" variant="tonal">{{ dialogError }}</v-alert>
+      <label class="admin-ui__field">
+        <span>{{ t('name') }}</span>
+        <input v-model="sectionForm.title" type="text">
+        <small v-if="fieldErrors.title?.length" style="color:#e85d4c">{{ fieldErrors.title[0] }}</small>
+      </label>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="sectionDialog = false">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="saving" @click="saveSection">{{ t('save') }}</button>
+      </template>
+    </AdminDialog>
 
-      <v-dialog v-model="lessonDialog" max-width="520">
-        <v-card>
-          <v-card-title>{{ lessonForm.id ? t('editLesson') : t('newLesson') }}</v-card-title>
-          <v-card-text>
-            <v-alert v-if="dialogError" class="mb-4" type="error" variant="tonal">{{ dialogError }}</v-alert>
-            <v-form @submit.prevent="saveLesson">
-              <v-text-field v-model="lessonForm.title" :label="t('name')" :error-messages="fieldErrors.title || []" />
-              <v-text-field v-model="lessonForm.duration_seconds" :label="t('durationSeconds')" type="number" :error-messages="fieldErrors.duration_seconds || []" />
-              <v-switch v-model="lessonForm.is_free_preview" :label="t('freePreview')" color="primary" hide-details />
-              <v-switch v-model="lessonForm.is_published" :label="t('published')" color="primary" />
-              <v-btn color="primary" type="submit" :loading="saving">{{ t('save') }}</v-btn>
-            </v-form>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+    <AdminDialog
+      v-model="lessonDialog"
+      :title="lessonForm.id ? t('editLesson') : t('newLesson')"
+      :max-width="520"
+    >
+      <v-alert v-if="dialogError" class="mb-3" type="error" variant="tonal">{{ dialogError }}</v-alert>
+      <div class="admin-ui__form-grid">
+        <label class="admin-ui__field">
+          <span>{{ t('name') }}</span>
+          <input v-model="lessonForm.title" type="text">
+          <small v-if="fieldErrors.title?.length" style="color:#e85d4c">{{ fieldErrors.title[0] }}</small>
+        </label>
+        <label class="admin-ui__field">
+          <span>{{ t('durationSeconds') }}</span>
+          <input v-model="lessonForm.duration_seconds" type="number">
+          <small v-if="fieldErrors.duration_seconds?.length" style="color:#e85d4c">{{ fieldErrors.duration_seconds[0] }}</small>
+        </label>
+        <label class="admin-ui__switch">
+          <input v-model="lessonForm.is_free_preview" type="checkbox">
+          {{ t('freePreview') }}
+        </label>
+        <label class="admin-ui__switch">
+          <input v-model="lessonForm.is_published" type="checkbox">
+          {{ t('published') }}
+        </label>
+      </div>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="lessonDialog = false">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="saving" @click="saveLesson">{{ t('save') }}</button>
+      </template>
+    </AdminDialog>
 
-      <v-dialog :model-value="videoDialog" max-width="560" @update:model-value="(open) => !open && closeVideo()">
-        <v-card>
-          <v-card-title>{{ canReplace(videoTarget?.video) ? t('uploadVideo') : t('videoStatus') }}</v-card-title>
-          <v-card-text>
-            <div class="mb-3 text-body-2">{{ videoTarget?.title }}</div>
-            <v-alert v-if="videoTarget?.video" class="mb-3" :type="videoTarget.video.status === 'failed' ? 'error' : 'info'" variant="tonal">
-              {{ t('videoStatus') }}: {{ videoLabel(videoTarget.video.status) }}
-              <span v-if="videoTarget.video.duration_seconds != null"> · {{ videoTarget.video.duration_seconds }}s</span>
-              <div v-if="videoTarget.video.error_message">{{ videoTarget.video.error_message }}</div>
-            </v-alert>
-            <v-img
-              v-if="videoTarget?.video?.cover_url"
-              :src="videoTarget.video.cover_url"
-              max-height="180"
-              class="mb-3 rounded"
-              cover
-            />
-            <v-alert v-if="videoSuccess" class="mb-3" type="success" variant="tonal">{{ videoSuccess }}</v-alert>
-            <v-alert v-if="videoMessage" class="mb-3" type="error" variant="tonal">{{ videoMessage }}</v-alert>
-            <v-file-input
-              v-if="canReplace(videoTarget?.video)"
-              v-model="videoFile"
-              :label="t('chooseVideo')"
-              accept="video/*"
-              show-size
-              :disabled="videoBusy"
-              class="mb-2"
-            />
-            <v-file-input
-              v-if="canReplace(videoTarget?.video) || videoTarget?.video"
-              v-model="coverFile"
-              :label="t('chooseVideoCover')"
-              accept="image/jpeg,image/png,image/webp"
-              show-size
-              :disabled="videoBusy"
-              class="mb-2"
-            />
-            <div class="d-flex flex-wrap ga-2">
-              <v-btn
-                v-if="canReplace(videoTarget?.video) || (videoTarget?.video && coverFile)"
-                color="primary"
-                :loading="videoBusy"
-                @click="uploadVideo"
-              >
-                {{ videoTarget?.video?.status === 'failed' ? t('replaceVideo') : (canReplace(videoTarget?.video) ? t('uploadVideo') : t('saveVideoCover')) }}
-              </v-btn>
-              <v-btn
-                v-if="videoTarget?.video?.cover_url"
-                variant="tonal"
-                color="error"
-                :loading="videoBusy"
-                @click="removeCover"
-              >
-                {{ t('removeVideoCover') }}
-              </v-btn>
-            </div>
-            <v-alert
-              v-if="videoTarget?.video && (videoTarget.video.status === 'uploading' || videoTarget.video.status === 'processing')"
-              class="mt-3"
-              type="info"
-              variant="tonal"
-            >
-              {{ t('videoWaiting') }}
-            </v-alert>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn variant="text" @click="closeVideo">{{ t('cancel') }}</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    <AdminDialog
+      :model-value="videoDialog"
+      :title="canReplace(videoTarget?.video) ? t('uploadVideo') : t('videoStatus')"
+      :max-width="560"
+      @update:model-value="(open) => !open && closeVideo()"
+    >
+      <div class="mb-3 text-body-2">{{ videoTarget?.title }}</div>
+      <v-alert v-if="videoTarget?.video" class="mb-3" :type="videoTarget.video.status === 'failed' ? 'error' : 'info'" variant="tonal">
+        {{ t('videoStatus') }}: {{ videoLabel(videoTarget.video.status) }}
+        <span v-if="videoTarget.video.duration_seconds != null"> · {{ videoTarget.video.duration_seconds }}s</span>
+        <div v-if="videoTarget.video.error_message">{{ videoTarget.video.error_message }}</div>
+      </v-alert>
+      <v-img
+        v-if="videoTarget?.video?.cover_url"
+        :src="videoTarget.video.cover_url"
+        max-height="180"
+        class="mb-3 rounded"
+        cover
+      />
+      <v-alert v-if="videoSuccess" class="mb-3" type="success" variant="tonal">{{ videoSuccess }}</v-alert>
+      <v-alert v-if="videoMessage" class="mb-3" type="error" variant="tonal">{{ videoMessage }}</v-alert>
+      <v-file-input
+        v-if="canReplace(videoTarget?.video)"
+        v-model="videoFile"
+        :label="t('chooseVideo')"
+        accept="video/*"
+        show-size
+        :disabled="videoBusy"
+        class="mb-2"
+      />
+      <v-file-input
+        v-if="canReplace(videoTarget?.video) || videoTarget?.video"
+        v-model="coverFile"
+        :label="t('chooseVideoCover')"
+        accept="image/jpeg,image/png,image/webp"
+        show-size
+        :disabled="videoBusy"
+        class="mb-2"
+      />
+      <div class="d-flex flex-wrap ga-2 mb-2">
+        <button
+          v-if="canReplace(videoTarget?.video) || (videoTarget?.video && coverFile)"
+          type="button"
+          class="admin-ui__btn admin-ui__btn--solid"
+          :disabled="videoBusy"
+          @click="uploadVideo"
+        >
+          {{ videoTarget?.video?.status === 'failed' ? t('replaceVideo') : (canReplace(videoTarget?.video) ? t('uploadVideo') : t('saveVideoCover')) }}
+        </button>
+        <button
+          v-if="videoTarget?.video?.cover_url"
+          type="button"
+          class="admin-ui__btn admin-ui__btn--danger"
+          :disabled="videoBusy"
+          @click="removeCover"
+        >
+          {{ t('removeVideoCover') }}
+        </button>
+      </div>
+      <v-alert
+        v-if="videoTarget?.video && (videoTarget.video.status === 'uploading' || videoTarget.video.status === 'processing')"
+        type="info"
+        variant="tonal"
+      >
+        {{ t('videoWaiting') }}
+      </v-alert>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="closeVideo">{{ t('cancel') }}</button>
+      </template>
+    </AdminDialog>
 
-      <v-dialog :model-value="pendingDelete !== null" max-width="460" @update:model-value="pendingDelete = null">
-        <v-card>
-          <v-card-title>{{ pendingDelete?.kind === 'section' ? t('deleteSection') : t('deleteLesson') }}</v-card-title>
-          <v-card-text>
-            {{ pendingDelete?.kind === 'section'
-              ? t('confirmDeleteSection', { name: pendingDelete?.title || '' })
-              : t('confirmDeleteLesson', { name: pendingDelete?.title || '' }) }}
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn variant="text" @click="pendingDelete = null">{{ t('cancel') }}</v-btn>
-            <v-btn color="error" :loading="saving" @click="confirmDelete">{{ t('delete') }}</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    <AdminDialog
+      :model-value="pendingDelete !== null"
+      :title="pendingDelete?.kind === 'section' ? t('deleteSection') : t('deleteLesson')"
+      :max-width="460"
+      danger
+      @update:model-value="(open) => { if (!open) pendingDelete = null }"
+    >
+      <p class="admin-dialog__text">
+        {{ pendingDelete?.kind === 'section'
+          ? t('confirmDeleteSection', { name: pendingDelete?.title || '' })
+          : t('confirmDeleteLesson', { name: pendingDelete?.title || '' }) }}
+      </p>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="pendingDelete = null">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--danger" :disabled="saving" @click="confirmDelete">{{ t('delete') }}</button>
+      </template>
+    </AdminDialog>
 </div>
 </template>

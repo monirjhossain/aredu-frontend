@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
@@ -197,16 +198,18 @@ async function confirmDelete() {
       </div>
     </section>
 
-    <v-dialog :model-value="Boolean(deleteTarget)" max-width="420" @update:model-value="(open) => { if (!open) deleteTarget = null }">
-      <v-card rounded="lg">
-        <v-card-title>{{ t('delete') }}</v-card-title>
-        <v-card-text>{{ t('confirmDeleteSpeakingTask') }}</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="deleteTarget = null">{{ t('cancel') }}</v-btn>
-          <v-btn color="error" :loading="deleting" @click="confirmDelete">{{ t('delete') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      :model-value="Boolean(deleteTarget)"
+      :title="t('delete')"
+      :max-width="420"
+      danger
+      @update:model-value="(open) => { if (!open) deleteTarget = null }"
+    >
+      <p class="admin-dialog__text">{{ t('confirmDeleteSpeakingTask') }}</p>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="deleteTarget = null">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--danger" :disabled="deleting" @click="confirmDelete">{{ t('delete') }}</button>
+      </template>
+    </AdminDialog>
   </div>
 </template>

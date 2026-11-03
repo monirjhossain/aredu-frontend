@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
@@ -115,26 +116,27 @@ function initial(name) {
       </div>
     </section>
 
-    <v-dialog v-model="dialog" max-width="480">
-      <v-card rounded="lg">
-        <v-card-title>{{ t('assignRoles') }} — {{ editingUser?.name }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
-          <v-select
-            v-model="selectedRoles"
-            :items="roleItems"
-            :label="t('roles')"
-            multiple
-            chips
-            closable-chips
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="dialog = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="#0f5c66" :loading="saving" @click="saveUserRoles">{{ t('save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      v-model="dialog"
+      :title="`${t('assignRoles')} — ${editingUser?.name || ''}`"
+      :max-width="480"
+    >
+      <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
+      <v-select
+        v-model="selectedRoles"
+        :items="roleItems"
+        :label="t('roles')"
+        multiple
+        chips
+        closable-chips
+        hide-details="auto"
+      />
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="dialog = false">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="saving" @click="saveUserRoles">
+          {{ t('save') }}
+        </button>
+      </template>
+    </AdminDialog>
   </div>
 </template>

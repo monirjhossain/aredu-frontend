@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
@@ -340,47 +341,43 @@ async function confirmDelete() {
       </v-col>
     </v-row>
 
-    <v-dialog v-model="roleDialog" max-width="480">
-      <v-card rounded="lg">
-        <v-card-title>{{ editingRole ? t('editRole') : t('newRole') }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
-          <v-text-field
-            v-model="roleForm.name"
-            :label="t('roleName')"
-            :error-messages="fieldErrors.name"
-            class="mb-2"
-          />
-          <v-text-field
-            v-model="roleForm.slug"
-            :label="t('roleSlug')"
-            :readonly="!!editingRole?.is_system"
-            :error-messages="fieldErrors.slug"
-            hint="users_manager"
-            persistent-hint
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="roleDialog = false">{{ t('cancel') }}</v-btn>
-          <v-btn color="#0f5c66" variant="flat" :loading="saving" @click="saveRole">{{ t('save') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      v-model="roleDialog"
+      :title="editingRole ? t('editRole') : t('newRole')"
+      :max-width="480"
+    >
+      <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
+      <div class="admin-ui__form-grid">
+        <label class="admin-ui__field">
+          <span>{{ t('roleName') }}</span>
+          <input v-model="roleForm.name" type="text">
+          <small v-if="fieldErrors.name?.length" style="color:#e85d4c">{{ fieldErrors.name[0] }}</small>
+        </label>
+        <label class="admin-ui__field">
+          <span>{{ t('roleSlug') }}</span>
+          <input v-model="roleForm.slug" type="text" :readonly="!!editingRole?.is_system" placeholder="users_manager">
+          <small v-if="fieldErrors.slug?.length" style="color:#e85d4c">{{ fieldErrors.slug[0] }}</small>
+        </label>
+      </div>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="roleDialog = false">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="saving" @click="saveRole">{{ t('save') }}</button>
+      </template>
+    </AdminDialog>
 
-    <v-dialog :model-value="deleteTarget !== null" max-width="420" @update:model-value="deleteTarget = null">
-      <v-card rounded="lg">
-        <v-card-title>{{ t('deleteRole') }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
-          {{ t('confirmDeleteRole', { name: deleteTarget?.name || '' }) }}
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="deleteTarget = null">{{ t('cancel') }}</v-btn>
-          <v-btn color="error" :loading="deleting" @click="confirmDelete">{{ t('delete') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AdminDialog
+      :model-value="deleteTarget !== null"
+      :title="t('deleteRole')"
+      :max-width="420"
+      danger
+      @update:model-value="(open) => { if (!open) deleteTarget = null }"
+    >
+      <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
+      <p class="admin-dialog__text">{{ t('confirmDeleteRole', { name: deleteTarget?.name || '' }) }}</p>
+      <template #actions>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="deleteTarget = null">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--danger" :disabled="deleting" @click="confirmDelete">{{ t('delete') }}</button>
+      </template>
+    </AdminDialog>
   </div>
 </template>
