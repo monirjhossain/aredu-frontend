@@ -786,19 +786,24 @@ function scrollToCourses() {
 .ostad-course-grid,
 .ostad-preview-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.1rem;
+}
+
+.ostad-course-grid > :deep(.m-course) {
+  height: 100%;
 }
 
 @media (min-width: 760px) {
   .ostad-course-grid,
   .ostad-preview-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1080px) {
   .ostad-course-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

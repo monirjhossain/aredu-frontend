@@ -91,10 +91,13 @@ const evaluationMix = computed(() => {
 })
 
 const quickLinks = computed(() => [
-  { to: { name: 'admin-courses' }, icon: 'mdi-book-plus-outline', label: t('courses'), show: auth.hasPermission('courses.manage') },
+  { to: { name: 'admin-roles' }, icon: 'mdi-shield-account-outline', label: t('rolesPermissions'), show: auth.hasPermission('roles.manage') },
+  { to: { name: 'admin-categories' }, icon: 'mdi-shape-outline', label: t('categories'), show: auth.hasPermission('categories.manage') },
   { to: { name: 'admin-students' }, icon: 'mdi-school-outline', label: t('manageStudents'), show: auth.hasPermission('users.manage') },
-  { to: { name: 'admin-users' }, icon: 'mdi-account-group-outline', label: t('users'), show: auth.hasPermission('users.manage') },
+  { to: { name: 'admin-courses' }, icon: 'mdi-book-plus-outline', label: t('manageCourses'), show: auth.hasPermission('courses.manage') },
   { to: { name: 'admin-orders' }, icon: 'mdi-receipt-text-outline', label: t('manageOrders'), show: auth.hasPermission('payments.manage') },
+  { to: { name: 'admin-finance' }, icon: 'mdi-cash-multiple', label: t('manageFinance'), show: auth.hasPermission('payments.manage') },
+  { to: { name: 'admin-accounts' }, icon: 'mdi-account-circle-outline', label: t('manageAccounts'), show: auth.hasPermission('users.manage') },
   { to: { name: 'admin-payments' }, icon: 'mdi-credit-card-outline', label: t('managePayments'), show: auth.hasPermission('payments.manage') },
   {
     to: { name: 'admin-reports' },
@@ -624,6 +627,9 @@ function buildDonut(items) {
   --paper: #f4f8f9;
   color: var(--ink);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
+  min-width: 0;
+  width: 100%;
+  overflow-x: clip;
 }
 
 .admin-dash__hero {
@@ -720,6 +726,7 @@ function buildDonut(items) {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
   padding: 0.95rem 1rem;
   border-radius: 0.95rem;
   background: #fff;
@@ -770,18 +777,35 @@ function buildDonut(items) {
 .admin-dash__charts,
 .admin-dash__lists {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.95rem;
   margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+@media (min-width: 760px) {
+  .admin-dash__lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 960px) {
   .admin-dash__charts {
-    grid-template-columns: 1.4fr 1fr;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   }
 
   .admin-panel--wide {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1200px) {
+  .admin-dash__charts {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  }
+
+  .admin-panel--wide {
+    grid-column: span 2;
   }
 
   .admin-dash__lists {
@@ -789,23 +813,18 @@ function buildDonut(items) {
   }
 }
 
-@media (min-width: 1200px) {
-  .admin-dash__charts {
-    grid-template-columns: 1.35fr 0.9fr 1fr;
-  }
-
-  .admin-panel--wide {
-    grid-column: span 2;
-  }
-}
-
 .admin-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 1.05rem 1.1rem 1.15rem;
   border-radius: 1rem;
   background: #fff;
   border: 1px solid var(--line);
   box-shadow: 0 10px 28px rgba(16, 42, 46, 0.045);
   animation: dash-rise 650ms ease both;
+  position: relative;
+  z-index: 0;
 }
 
 .admin-panel__head {
@@ -1012,15 +1031,16 @@ function buildDonut(items) {
 
 .admin-feed li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.55rem 0.7rem;
   padding: 0.65rem 0.7rem;
   border-radius: 0.75rem;
   background: var(--paper);
+  min-width: 0;
 }
 
 .admin-feed__order {
-  flex-wrap: wrap;
   justify-content: space-between;
 }
 
@@ -1061,6 +1081,9 @@ function buildDonut(items) {
   display: block;
   font-size: 0.9rem;
   font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-feed p {
@@ -1077,6 +1100,8 @@ function buildDonut(items) {
   font-size: 0.72rem;
   font-weight: 650;
   white-space: nowrap;
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 @keyframes dash-rise {

@@ -310,7 +310,7 @@ function navActive(name) {
       :permanent="mdAndUp"
       :temporary="!mdAndUp"
       mobile-breakpoint="md"
-      width="260"
+      width="272"
       class="admin-drawer"
     >
       <div v-if="auth.isAuthenticated" class="admin-drawer__user px-4 py-3">
@@ -356,16 +356,22 @@ function navActive(name) {
             prepend-icon="mdi-view-dashboard"
           />
           <v-list-item
-            v-if="auth.hasPermission('reports.view') || auth.hasPermission('progress.view_assigned')"
-            :title="t('reports')"
-            to="/admin/reports"
-            prepend-icon="mdi-chart-box"
+            v-if="auth.hasPermission('roles.manage')"
+            :title="t('rolesPermissions')"
+            to="/admin/roles"
+            prepend-icon="mdi-shield-account"
           />
           <v-list-item
             v-if="auth.hasPermission('categories.manage')"
             :title="t('categories')"
             to="/admin/categories"
             prepend-icon="mdi-shape"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('users.manage')"
+            :title="t('manageStudents')"
+            to="/admin/students"
+            prepend-icon="mdi-school-outline"
           />
           <v-list-item
             v-if="auth.hasPermission('courses.manage')"
@@ -381,9 +387,27 @@ function navActive(name) {
           />
           <v-list-item
             v-if="auth.hasPermission('payments.manage')"
+            :title="t('manageFinance')"
+            to="/admin/finance"
+            prepend-icon="mdi-cash-multiple"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('users.manage')"
+            :title="t('manageAccounts')"
+            to="/admin/accounts"
+            prepend-icon="mdi-account-circle-outline"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('payments.manage')"
             :title="t('managePayments')"
             to="/admin/payments"
             prepend-icon="mdi-cash-refund"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('reports.view') || auth.hasPermission('progress.view_assigned')"
+            :title="t('reports')"
+            to="/admin/reports"
+            prepend-icon="mdi-chart-box"
           />
           <v-list-item
             v-if="auth.hasPermission('mock_tests.manage')"
@@ -429,21 +453,9 @@ function navActive(name) {
           />
           <v-list-item
             v-if="auth.hasPermission('users.manage')"
-            :title="t('manageStudents')"
-            to="/admin/students"
-            prepend-icon="mdi-school-outline"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('users.manage')"
             :title="t('users')"
             to="/admin/users"
             prepend-icon="mdi-account-group"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('roles.manage')"
-            :title="t('rolesPermissions')"
-            to="/admin/roles"
-            prepend-icon="mdi-shield-account"
           />
           <v-list-item
             v-if="auth.hasPermission('settings.manage')"
@@ -467,7 +479,7 @@ function navActive(name) {
       </v-list>
     </v-navigation-drawer>
 
-    <v-main>
+    <v-main class="admin-shell-main">
       <router-view v-if="isLanding" />
       <v-container v-else class="admin-main-wrap py-3 py-md-4" fluid>
         <router-view />
@@ -537,6 +549,39 @@ function navActive(name) {
   font-weight: 600;
 }
 
+.admin-drawer {
+  overflow-x: hidden !important;
+}
+
+.admin-drawer :deep(.v-navigation-drawer__content) {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+}
+
+.admin-drawer :deep(.v-list) {
+  padding-inline: 0.35rem;
+}
+
+.admin-drawer :deep(.v-list-item) {
+  margin-inline: 0;
+  padding-inline: 0.75rem 0.85rem !important;
+  min-height: 44px;
+}
+
+.admin-drawer :deep(.v-list-item__prepend) {
+  margin-inline-end: 0.75rem !important;
+  width: 1.5rem;
+  justify-content: center;
+}
+
+.admin-drawer :deep(.v-list-item-title) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
 .admin-drawer :deep(.v-list-item--active) {
   background: rgba(15, 92, 102, 0.12);
   color: #0a3d44;
@@ -551,8 +596,19 @@ function navActive(name) {
   color: rgba(247, 249, 252, 0.72);
 }
 
+.admin-shell-main {
+  min-width: 0;
+}
+
+.admin-shell-main :deep(.v-main__wrap) {
+  min-width: 0;
+  overflow-x: clip;
+}
+
 .admin-main-wrap {
-  max-width: 1180px;
+  width: 100%;
+  max-width: 1280px;
   margin-inline: auto;
+  min-width: 0;
 }
 </style>
