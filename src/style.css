@@ -33,6 +33,38 @@ body,
   gap: 1rem;
 }
 
+.site-nav__inner--wide {
+  width: min(1280px, calc(100% - 1.5rem));
+}
+
+.site-nav--student-app {
+  background: rgba(243, 245, 248, 0.96);
+  border-bottom-color: transparent;
+}
+
+.site-nav__spacer {
+  flex: 1 1 auto;
+}
+
+.site-nav__side-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid #e6ebf2;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #0b1b34;
+  cursor: pointer;
+}
+
+@media (min-width: 960px) {
+  .site-nav__side-toggle {
+    display: none;
+  }
+}
+
 .site-nav__brand {
   flex: 0 0 auto;
   display: inline-flex;
@@ -171,7 +203,22 @@ body,
 
 .site-nav__avatar {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  overflow: hidden;
   color: #0b1b34;
+  background: #f2f4f7;
+  flex: 0 0 auto;
+}
+
+.site-nav__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 @media (min-width: 640px) {

@@ -25,8 +25,11 @@ const profileErrors = ref({})
 const passwordErrors = ref({})
 const profileMessage = ref('')
 const passwordMessage = ref('')
+const avatarMessage = ref('')
 const savingProfile = ref(false)
 const savingPassword = ref(false)
+const savingAvatar = ref(false)
+const avatarInput = ref(null)
 
 onMounted(async () => {
   try {
@@ -57,6 +60,37 @@ async function saveProfile() {
     profileMessage.value = parsed.message || t('requestFailed')
   } finally {
     savingProfile.value = false
+  }
+}
+
+async function onAvatarPicked(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+
+  avatarMessage.value = ''
+  savingAvatar.value = true
+  try {
+    await auth.updateAvatar(file)
+    ui.success(t('avatarSaved'))
+  } catch (error) {
+    const parsed = apiError(error)
+    avatarMessage.value = parsed.errors?.avatar?.[0] || parsed.message || t('requestFailed')
+  } finally {
+    savingAvatar.value = false
+  }
+}
+
+async function removeAvatar() {
+  avatarMessage.value = ''
+  savingAvatar.value = true
+  try {
+    await auth.deleteAvatar()
+    ui.success(t('avatarRemoved'))
+  } catch (error) {
+    avatarMessage.value = apiError(error).message || t('requestFailed')
+  } finally {
+    savingAvatar.value = false
   }
 }
 
@@ -93,6 +127,53 @@ async function savePassword() {
         <span>{{ auth.user?.email }}</span>
       </div>
     </header>
+
+    <section class="account-page__panel account-page__photo">
+      <div class="account-page__panel-head">
+        <h2>{{ t('profilePhoto') }}</h2>
+        <p>{{ t('profilePhotoLead') }}</p>
+      </div>
+
+      <v-alert v-if="avatarMessage" type="error" variant="tonal" class="mb-3">{{ avatarMessage }}</v-alert>
+
+      <div class="account-page__avatar-row">
+        <div class="account-page__avatar" aria-hidden="true">
+          <img
+            v-if="auth.user?.avatar_url"
+            :src="auth.user.avatar_url"
+            :alt="auth.user?.name || t('profilePhoto')"
+          >
+          <span v-else>{{ auth.user?.name?.charAt(0) || '?' }}</span>
+        </div>
+        <div class="account-page__avatar-actions">
+          <input
+            ref="avatarInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="account-page__file"
+            @change="onAvatarPicked"
+          >
+          <button
+            type="button"
+            class="account-page__btn"
+            :disabled="savingAvatar"
+            @click="avatarInput?.click()"
+          >
+            {{ savingAvatar ? t('loading') : (auth.user?.avatar_url ? t('changePhoto') : t('uploadPhoto')) }}
+          </button>
+          <button
+            v-if="auth.user?.avatar_url"
+            type="button"
+            class="account-page__btn account-page__btn--ghost"
+            :disabled="savingAvatar"
+            @click="removeAvatar"
+          >
+            {{ t('removePhoto') }}
+          </button>
+          <p class="account-page__hint">{{ t('avatarHint') }}</p>
+        </div>
+      </div>
+    </section>
 
     <div class="account-page__grid">
       <section class="account-page__panel">
@@ -253,6 +334,69 @@ async function savePassword() {
   font-size: 0.82rem;
   opacity: 0.85;
   word-break: break-all;
+}
+
+.account-page__photo {
+  margin-bottom: 0;
+}
+
+.account-page__avatar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.account-page__avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 92, 102, 0.12);
+  color: #0f5c66;
+  font-size: 1.8rem;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.account-page__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.account-page__avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.account-page__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.account-page__hint {
+  margin: 0;
+  width: 100%;
+  color: #5b7378;
+  font-size: 0.8rem;
+}
+
+.account-page__btn--ghost {
+  background: #fff;
+  color: #0f5c66;
+  border: 1px solid #d9e6e8;
 }
 
 .account-page__grid {

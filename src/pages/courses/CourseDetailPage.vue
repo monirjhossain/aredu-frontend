@@ -2,9 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import CourseCard from '../../components/marketing/CourseCard.vue'
+import MarketingFooter from '../../components/marketing/MarketingFooter.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
 import { useAuthStore } from '../../stores/auth'
+import { useLocaleStore } from '../../stores/locale'
 import { useUiStore } from '../../stores/ui'
 import {
   discountPct,
@@ -19,25 +22,80 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const localeStore = useLocaleStore()
 const ui = useUiStore()
 
 const course = ref(null)
+const relatedCourses = ref([])
+const branding = ref({
+  platform_name: 'AR Education',
+  logo_url: null,
+  contact_information: '',
+  support_email: '',
+  currency: 'BDT',
+})
 const loading = ref(true)
 const message = ref('')
 const purchaseNote = ref('')
 const purchasing = ref(false)
 const openSections = ref([])
+const relatedTrack = ref(null)
 
 const exam = computed(() => (course.value ? examLabel(course.value, t) : ''))
 const duration = computed(() => (course.value ? durationLabel(course.value, t) : null))
 const price = computed(() => (course.value ? sellingPrice(course.value) : ''))
 const off = computed(() => (course.value ? discountPct(course.value) : null))
-const currency = computed(() => 'BDT')
+const currency = computed(() => branding.value.currency || 'BDT')
+const brandName = computed(() => branding.value.platform_name || t('appName'))
 
 const lessonCount = computed(() => {
   if (!course.value?.sections) return 0
   return course.value.sections.reduce((sum, section) => sum + (section.lessons?.length || 0), 0)
 })
+
+const learnersLabel = computed(() => {
+  const count = course.value?.learners_count
+  if (count == null || count === '') return ''
+  return t('learnersCount', { count: formatInt(count) })
+})
+
+const classStartLabel = computed(() => {
+  const date = course.value?.class_starts_on
+  if (!date) return ''
+  return t('classStartsOn', { date: formatShortDate(date) })
+})
+
+const batchLabel = computed(() => {
+  const batch = course.value?.batch_number
+  if (batch == null || batch === '') return ''
+  return t('batchNumber', { number: formatInt(batch) })
+})
+
+const seatsLabel = computed(() => {
+  const seats = course.value?.seats_left
+  if (seats == null || seats === '') return ''
+  return t('seatsLeft', { count: formatInt(seats) })
+})
+
+const offerLabel = computed(() => {
+  const days = course.value?.offer_days_left
+  if (days == null) return ''
+  if (Number(days) <= 0) return t('offerEndsToday')
+  return t('offerDaysLeft', { count: formatInt(days) })
+})
+
+function formatInt(value) {
+  const locale = localeStore.locale === 'bn' ? 'bn-BD' : 'en-GB'
+  return new Intl.NumberFormat(locale).format(Number(value || 0))
+}
+
+function formatShortDate(value) {
+  const locale = localeStore.locale === 'bn' ? 'bn-BD' : 'en-GB'
+  return new Date(`${value}T00:00:00`).toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'short',
+  })
+}
 
 function lessonTime(seconds) {
   const total = Number(seconds) || 0
@@ -47,11 +105,63 @@ function lessonTime(seconds) {
   return t('secondsCount', { count: total })
 }
 
+async function loadBranding() {
+  try {
+    const { data } = await http.get('/landing', { skipErrorToast: true })
+    branding.value = { ...branding.value, ...((data.data || {}).branding || {}) }
+  } catch {
+    // Footer still renders with defaults.
+  }
+}
+
+async function loadRelated(current) {
+  relatedCourses.value = []
+  if (!current?.id) return
+
+  const pick = (rows) => (rows || []).filter((item) => item.id !== current.id).slice(0, 8)
+
+  try {
+    if (current.category?.id) {
+      const { data } = await http.get('/courses', {
+        params: {
+          exam_type: current.exam_type || undefined,
+          category_id: current.category.id,
+          page: 1,
+        },
+        skipErrorToast: true,
+      })
+      relatedCourses.value = pick(data.data)
+    }
+
+    if (relatedCourses.value.length < 3 && current.exam_type) {
+      const { data } = await http.get('/courses', {
+        params: { exam_type: current.exam_type, page: 1 },
+        skipErrorToast: true,
+      })
+      const merged = [...relatedCourses.value]
+      for (const item of pick(data.data)) {
+        if (!merged.some((row) => row.id === item.id)) merged.push(item)
+      }
+      relatedCourses.value = merged.slice(0, 8)
+    }
+  } catch {
+    relatedCourses.value = []
+  }
+}
+
+function scrollRelated(dir) {
+  const el = relatedTrack.value
+  if (!el) return
+  const amount = Math.min(320, Math.round(el.clientWidth * 0.8))
+  el.scrollBy({ left: dir * amount, behavior: 'smooth' })
+}
+
 async function load() {
   loading.value = true
   message.value = ''
   purchaseNote.value = ''
   course.value = null
+  relatedCourses.value = []
   openSections.value = []
   try {
     const { data } = await http.get(`/courses/${route.params.slug}`, { skipErrorToast: true })
@@ -59,6 +169,7 @@ async function load() {
     if (course.value?.sections?.length) {
       openSections.value = [course.value.sections[0].id]
     }
+    await loadRelated(course.value)
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -109,7 +220,10 @@ function watchLesson(lesson) {
   })
 }
 
-onMounted(load)
+onMounted(() => {
+  loadBranding()
+  load()
+})
 watch(() => route.params.slug, load)
 </script>
 
@@ -152,11 +266,43 @@ watch(() => route.params.slug, load)
           </div>
 
           <aside class="site-buy">
+            <div v-if="learnersLabel || classStartLabel" class="site-buy__topmeta">
+              <div v-if="learnersLabel" class="site-buy__learners">
+                <span class="site-buy__avatars" aria-hidden="true">
+                  <span /><span /><span />
+                </span>
+                <span>{{ learnersLabel }}</span>
+              </div>
+              <span v-if="classStartLabel" class="site-buy__start">
+                <span class="site-buy__start-dot" aria-hidden="true" />
+                {{ classStartLabel }}
+              </span>
+            </div>
+
+            <div v-if="batchLabel || seatsLabel" class="site-buy__chips">
+              <span v-if="batchLabel" class="site-buy__chip">
+                <v-icon size="14" icon="mdi-file-document-outline" />
+                {{ batchLabel }}
+              </span>
+              <span v-if="seatsLabel" class="site-buy__chip">
+                <v-icon size="14" icon="mdi-seat" />
+                {{ seatsLabel }}
+              </span>
+            </div>
+
             <div class="site-buy__prices">
-              <strong>{{ money(price, currency) }}</strong>
-              <s v-if="hasDiscount(course)">{{ money(course.price, currency) }}</s>
+              <div class="site-buy__price-main">
+                <strong>{{ money(price, currency) }}</strong>
+                <s v-if="hasDiscount(course)">{{ money(course.price, currency) }}</s>
+              </div>
               <span v-if="off" class="site-buy__off">{{ off }}% {{ t('landingOff') }}</span>
             </div>
+
+            <div v-if="offerLabel" class="site-buy__offer">
+              <v-icon size="15" icon="mdi-timer-sand" />
+              <span>{{ offerLabel }}</span>
+            </div>
+
             <p class="site-buy__note">{{ t('lifetimeAccessHint') }}</p>
 
             <template v-if="course.is_enrolled">
@@ -243,7 +389,44 @@ watch(() => route.params.slug, load)
           </div>
         </div>
       </section>
+
+      <section v-if="relatedCourses.length" class="site-section site-related">
+        <div class="site-wrap">
+          <div class="site-related__head">
+            <div>
+              <p class="site-kicker">{{ t('courses') }}</p>
+              <h2>{{ t('relatedCourses') }}</h2>
+              <p>{{ t('relatedCoursesLead') }}</p>
+            </div>
+            <div class="site-related__nav">
+              <button type="button" class="site-related__btn" :aria-label="t('previous')" @click="scrollRelated(-1)">
+                <v-icon icon="mdi-chevron-left" size="22" />
+              </button>
+              <button type="button" class="site-related__btn" :aria-label="t('next')" @click="scrollRelated(1)">
+                <v-icon icon="mdi-chevron-right" size="22" />
+              </button>
+            </div>
+          </div>
+
+          <div class="site-related__stage">
+            <div ref="relatedTrack" class="site-related__track" tabindex="0">
+              <div class="site-related__rail">
+                <div v-for="item in relatedCourses" :key="item.id" class="site-related__card">
+                  <CourseCard :course="item" :currency="currency" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </template>
+
+    <MarketingFooter
+      :brand-name="brandName"
+      :logo-url="branding.logo_url || ''"
+      :contact-information="branding.contact_information || ''"
+      :support-email="branding.support_email || ''"
+    />
   </div>
 </template>
 
@@ -383,16 +566,104 @@ watch(() => route.params.slug, load)
   border: 1px solid var(--line);
   box-shadow: 0 14px 36px rgba(11, 27, 52, 0.08);
   display: grid;
-  gap: 0.85rem;
+  gap: 0.75rem;
   position: sticky;
   top: 5rem;
+}
+
+.site-buy__topmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.site-buy__learners {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #475467;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.site-buy__avatars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-buy__avatars span {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  background: linear-gradient(135deg, #7dd3c7, #14919b);
+}
+
+.site-buy__avatars span + span {
+  margin-left: -0.28rem;
+}
+
+.site-buy__avatars span:nth-child(2) {
+  background: linear-gradient(135deg, #f5c518, #e8a317);
+}
+
+.site-buy__avatars span:nth-child(3) {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+}
+
+.site-buy__start {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: #fff8e1;
+  color: #1f2a37;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.site-buy__start-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--yellow);
+  flex: 0 0 auto;
+}
+
+.site-buy__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.site-buy__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 0.45rem;
+  background: #f3f5f8;
+  color: #475467;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .site-buy__prices {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.55rem;
+}
+
+.site-buy__price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
 }
 
 .site-buy__prices strong {
@@ -402,6 +673,7 @@ watch(() => route.params.slug, load)
 
 .site-buy__prices s {
   color: #98a2b3;
+  font-size: 0.95rem;
 }
 
 .site-buy__off {
@@ -411,6 +683,20 @@ watch(() => route.params.slug, load)
   font-size: 0.78rem;
   font-weight: 800;
   clip-path: polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 12px 75%, 0 50%, 12px 25%);
+  white-space: nowrap;
+}
+
+.site-buy__offer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  background: #fff8e1;
+  color: #8a6a00;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .site-buy__note,
@@ -619,5 +905,122 @@ watch(() => route.params.slug, load)
   font-style: normal;
   color: #e85d4c;
   font-weight: 700;
+}
+
+.site-related {
+  background:
+    radial-gradient(circle at top right, rgba(15, 92, 102, 0.06), transparent 42%),
+    #f7f9fc;
+  padding: 2.25rem 0 2.75rem;
+}
+
+.site-related__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.site-related__head h2 {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.site-related__head p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 40ch;
+  line-height: 1.45;
+}
+
+.site-related__nav {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.site-related__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(11, 27, 52, 0.05);
+}
+
+.site-related__btn:hover {
+  border-color: rgba(15, 92, 102, 0.35);
+  color: #0f5c66;
+}
+
+.site-related__stage {
+  position: relative;
+  margin: 0 -0.15rem;
+}
+
+.site-related__stage::before,
+.site-related__stage::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0.75rem;
+  width: 1.25rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.site-related__stage::before {
+  left: 0;
+  background: linear-gradient(90deg, #f7f9fc, transparent);
+}
+
+.site-related__stage::after {
+  right: 0;
+  background: linear-gradient(270deg, #f7f9fc, transparent);
+}
+
+.site-related__track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0.35rem 0.15rem 1rem;
+}
+
+.site-related__track::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.site-related__rail {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  padding-right: 0.35rem;
+}
+
+.site-related__card {
+  flex: 0 0 min(260px, 78vw);
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .site-related__card {
+    flex-basis: 280px;
+  }
+}
+
+.site-related__card :deep(.m-course) {
+  height: 100%;
+  box-shadow: 0 10px 24px rgba(11, 27, 52, 0.07);
 }
 </style>

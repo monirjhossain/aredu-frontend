@@ -112,6 +112,28 @@ export const useAuthStore = defineStore('auth', () => {
     return data.message
   }
 
+  async function updateAvatar(file) {
+    const form = new FormData()
+    form.append('avatar', file)
+    const { data } = await http.post('/profile/avatar', form, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    user.value = data.data
+    persist()
+    return data.message
+  }
+
+  async function deleteAvatar() {
+    const { data } = await http.delete('/profile/avatar', {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    user.value = data.data
+    persist()
+    return data.message
+  }
+
   async function changePassword(payload) {
     const { data } = await http.put('/password', payload, { skipErrorToast: true })
     return data.message
@@ -153,6 +175,8 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     fetchMe,
     updateProfile,
+    updateAvatar,
+    deleteAvatar,
     changePassword,
     forgotPassword,
     resetPassword,

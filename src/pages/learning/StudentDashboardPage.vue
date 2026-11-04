@@ -119,6 +119,24 @@ function notificationText(item) {
   if (item?.data?.title) return item.data.title
   return item?.type || t('notification')
 }
+
+function mockResultTo(row) {
+  if (!row?.attempt_id) return { name: 'reading-results' }
+  if (row.mock_test?.module === 'listening') {
+    return { name: 'listening-attempt', params: { attemptId: row.attempt_id } }
+  }
+  return { name: 'reading-attempt', params: { attemptId: row.attempt_id } }
+}
+
+function writingPendingTo(item) {
+  if (item?.task_id) return { name: 'writing-editor', params: { id: item.task_id } }
+  return { name: 'writing-submissions' }
+}
+
+function speakingPendingTo(item) {
+  if (item?.task_id) return { name: 'speaking-task-detail', params: { id: item.task_id } }
+  return { name: 'speaking-recordings' }
+}
 </script>
 
 <template>
@@ -281,14 +299,14 @@ function notificationText(item) {
           <p v-if="dashboard.recent_mock_results.length === 0" class="student-panel__empty">{{ t('noMockResults') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="row in dashboard.recent_mock_results" :key="row.attempt_id">
-              <div>
+              <router-link :to="mockResultTo(row)">
                 <strong>{{ row.mock_test?.title }}</strong>
                 <span>
                   {{ row.result?.raw_score }}/{{ row.result?.max_score }}
                   · {{ t('bandScore') }}: {{ row.result?.band_score ?? '—' }}
                   · {{ when(row.submitted_at) }}
                 </span>
-              </div>
+              </router-link>
             </li>
           </ul>
         </article>
@@ -296,17 +314,17 @@ function notificationText(item) {
         <article class="student-panel">
           <div class="student-panel__head">
             <h2>{{ t('pendingWriting') }} ({{ dashboard.pending_writing.total }})</h2>
-            <router-link class="student-panel__all" :to="{ name: 'writing-tasks' }">
+            <router-link class="student-panel__all" :to="{ name: 'writing-submissions' }">
               {{ t('viewAll') }}
             </router-link>
           </div>
           <p v-if="dashboard.pending_writing.items.length === 0" class="student-panel__empty">{{ t('noPendingWriting') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="item in dashboard.pending_writing.items" :key="item.id">
-              <div>
+              <router-link :to="writingPendingTo(item)">
                 <strong>{{ item.title }}</strong>
                 <span>{{ when(item.submitted_at) }}</span>
-              </div>
+              </router-link>
             </li>
           </ul>
         </article>
@@ -314,17 +332,17 @@ function notificationText(item) {
         <article class="student-panel">
           <div class="student-panel__head">
             <h2>{{ t('pendingSpeaking') }} ({{ dashboard.pending_speaking.total }})</h2>
-            <router-link class="student-panel__all" :to="{ name: 'speaking-tasks' }">
+            <router-link class="student-panel__all" :to="{ name: 'speaking-recordings' }">
               {{ t('viewAll') }}
             </router-link>
           </div>
           <p v-if="dashboard.pending_speaking.items.length === 0" class="student-panel__empty">{{ t('noPendingSpeaking') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="item in dashboard.pending_speaking.items" :key="item.id">
-              <div>
+              <router-link :to="speakingPendingTo(item)">
                 <strong>{{ item.title }}</strong>
                 <span>{{ when(item.submitted_at) }}</span>
-              </div>
+              </router-link>
             </li>
           </ul>
         </article>

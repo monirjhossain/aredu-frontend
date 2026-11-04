@@ -17,6 +17,8 @@ const localeStore = useLocaleStore()
 const ui = useUiStore()
 const auth = useAuthStore()
 const drawer = ref(false)
+const studentMenuOpen = ref(false)
+const studentSideCollapsed = ref(false)
 const arLogo = `${import.meta.env.BASE_URL}images/ar-logo.png`
 
 const roleLabel = computed(() => {
@@ -30,6 +32,8 @@ const roleLabel = computed(() => {
 const isLanding = computed(() => !!route.meta.fullBleed)
 const isStudentShell = computed(() => auth.isAuthenticated && auth.isStudent && !auth.isStaff)
 const useTopChrome = computed(() => isLanding.value || isStudentShell.value)
+const showStudentSide = computed(() => isStudentShell.value && !isLanding.value)
+const showAdminDrawer = computed(() => !useTopChrome.value)
 const landingMenuOpen = ref(false)
 const redirectQuery = computed(() => (
   typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
@@ -38,44 +42,46 @@ const redirectQuery = computed(() => (
 ))
 
 const studentLinks = computed(() => [
-  { name: 'student-dashboard', label: t('studentDashboard') },
-  { name: 'my-courses', label: t('myCourses') },
-  { name: 'orders', label: t('myOrders') },
-  { name: 'reading-tests', label: t('readingTests') },
-  { name: 'listening-tests', label: t('listeningTests') },
-  { name: 'writing-tasks', label: t('writingTasks') },
-  { name: 'speaking-tasks', label: t('speakingTasks') },
-  { name: 'notifications', label: t('notifications') },
-  { name: 'account', label: t('account') },
+  { name: 'student-dashboard', label: t('studentDashboard'), icon: 'mdi-view-dashboard-outline' },
+  { name: 'my-courses', label: t('myCourses'), icon: 'mdi-book-open-page-variant-outline' },
+  { name: 'orders', label: t('myOrders'), icon: 'mdi-receipt-text-outline' },
+  { name: 'reading-tests', label: t('readingTests'), icon: 'mdi-book-outline' },
+  { name: 'listening-tests', label: t('listeningTests'), icon: 'mdi-headphones' },
+  { name: 'writing-tasks', label: t('writingTasks'), icon: 'mdi-pencil-outline' },
+  { name: 'speaking-tasks', label: t('speakingTasks'), icon: 'mdi-microphone-outline' },
+  { name: 'notifications', label: t('notifications'), icon: 'mdi-bell-outline' },
+  { name: 'account', label: t('account'), icon: 'mdi-account-outline' },
 ])
 
 watch(mdAndUp, (desktop) => {
-  // Only staff/admin keep a permanent desktop drawer.
-  drawer.value = desktop && !isStudentShell.value
+  drawer.value = desktop && showAdminDrawer.value
+  if (desktop) studentMenuOpen.value = false
 }, { immediate: true })
+
+watch(showAdminDrawer, (show) => {
+  drawer.value = show && mdAndUp.value
+})
 
 watch(() => route.fullPath, () => {
   landingMenuOpen.value = false
-  if (!mdAndUp.value || isStudentShell.value) {
-    drawer.value = false
-  }
-})
-
-watch(isStudentShell, (student) => {
-  if (student) drawer.value = false
-  else if (mdAndUp.value) drawer.value = true
+  studentMenuOpen.value = false
+  if (!mdAndUp.value) drawer.value = false
 })
 
 function closeIfMobile() {
-  if (!mdAndUp.value || isStudentShell.value) {
-    drawer.value = false
-  }
+  if (!mdAndUp.value) drawer.value = false
+}
+
+function toggleStudentSide() {
+  if (mdAndUp.value) studentSideCollapsed.value = !studentSideCollapsed.value
+  else studentMenuOpen.value = !studentMenuOpen.value
 }
 
 async function logout() {
   await auth.logout()
   closeIfMobile()
   landingMenuOpen.value = false
+  studentMenuOpen.value = false
   router.push({ name: 'home' })
 }
 
@@ -106,9 +112,14 @@ function studentNavActive(name) {
       indeterminate
     />
 
-    <header v-if="useTopChrome" class="site-nav">
-      <div class="site-nav__inner">
-        <router-link class="site-nav__brand" :to="{ name: 'home' }" :aria-label="t('appName')">
+    <header v-if="useTopChrome" class="site-nav" :class="{ 'site-nav--student-app': showStudentSide }">
+      <div class="site-nav__inner" :class="{ 'site-nav__inner--wide': showStudentSide }">
+        <router-link
+          v-if="!showStudentSide"
+          class="site-nav__brand"
+          :to="{ name: 'home' }"
+          :aria-label="t('appName')"
+        >
           <img
             class="site-nav__logo"
             :src="arLogo"
@@ -118,7 +129,17 @@ function studentNavActive(name) {
           >
         </router-link>
 
-        <nav class="site-nav__links" aria-label="Primary">
+        <button
+          v-if="showStudentSide"
+          type="button"
+          class="site-nav__side-toggle"
+          :aria-label="t('openMenu')"
+          @click="toggleStudentSide"
+        >
+          <v-icon icon="mdi-menu" size="22" />
+        </button>
+
+        <nav v-if="!showStudentSide" class="site-nav__links" aria-label="Primary">
           <router-link
             class="site-nav__link"
             active-class=""
@@ -149,6 +170,7 @@ function studentNavActive(name) {
             {{ t('studentDashboard') }}
           </router-link>
         </nav>
+        <div v-else class="site-nav__spacer" />
 
         <div class="site-nav__actions">
           <div class="site-nav__locale" role="group" :aria-label="t('language')">
@@ -184,7 +206,12 @@ function studentNavActive(name) {
                   <small v-if="roleLabel">{{ roleLabel }}</small>
                 </span>
                 <span class="site-nav__avatar" aria-hidden="true">
-                  <v-icon icon="mdi-account-circle" size="28" />
+                  <img
+                    v-if="auth.user?.avatar_url"
+                    :src="auth.user.avatar_url"
+                    :alt="auth.user?.name || ''"
+                  >
+                  <v-icon v-else icon="mdi-account-circle" size="28" />
                 </span>
               </button>
             </template>
@@ -219,6 +246,7 @@ function studentNavActive(name) {
           </template>
 
           <button
+            v-if="!showStudentSide"
             type="button"
             class="site-nav__menu-btn"
             :aria-expanded="landingMenuOpen"
@@ -230,7 +258,7 @@ function studentNavActive(name) {
         </div>
       </div>
 
-      <div v-if="landingMenuOpen" class="site-nav__drawer">
+      <div v-if="landingMenuOpen && !showStudentSide" class="site-nav__drawer">
         <router-link :to="{ name: 'courses' }" @click="landingMenuOpen = false">{{ t('courses') }}</router-link>
         <router-link
           v-if="auth.isAuthenticated && auth.isAdmin"
@@ -265,26 +293,6 @@ function studentNavActive(name) {
         </router-link>
         <button v-if="auth.isAuthenticated" type="button" @click="logout">{{ t('logout') }}</button>
       </div>
-
-      <nav
-        v-if="isStudentShell && !isLanding"
-        class="student-subnav"
-        :aria-label="t('studentDashboard')"
-      >
-        <div class="student-subnav__inner">
-          <router-link
-            v-for="link in studentLinks"
-            :key="link.name"
-            class="student-subnav__link"
-            active-class=""
-            exact-active-class=""
-            :class="{ 'is-active': studentNavActive(link.name) }"
-            :to="{ name: link.name }"
-          >
-            {{ link.label }}
-          </router-link>
-        </div>
-      </nav>
     </header>
 
     <v-app-bar
@@ -341,7 +349,14 @@ function studentNavActive(name) {
               {{ auth.user?.name }}
               <small v-if="roleLabel">{{ roleLabel }}</small>
             </span>
-            <v-icon icon="mdi-account-circle" size="28" class="ms-1" />
+            <span class="admin-bar__avatar ms-1" aria-hidden="true">
+              <img
+                v-if="auth.user?.avatar_url"
+                :src="auth.user.avatar_url"
+                :alt="auth.user?.name || ''"
+              >
+              <v-icon v-else icon="mdi-account-circle" size="28" />
+            </span>
             <v-icon icon="mdi-chevron-down" size="18" />
           </v-btn>
         </template>
@@ -361,7 +376,7 @@ function studentNavActive(name) {
     </v-app-bar>
 
     <v-navigation-drawer
-      v-if="!useTopChrome"
+      v-if="showAdminDrawer"
       v-model="drawer"
       :permanent="mdAndUp"
       :temporary="!mdAndUp"
@@ -375,11 +390,8 @@ function studentNavActive(name) {
       </div>
       <v-divider v-if="auth.isAuthenticated" />
       <v-list nav @click="closeIfMobile">
-        <template v-if="!auth.isAuthenticated || auth.isStudent">
-          <v-list-item :title="t('courses')" to="/courses" prepend-icon="mdi-school" />
-        </template>
-
         <template v-if="!auth.isAuthenticated">
+          <v-list-item :title="t('courses')" to="/courses" prepend-icon="mdi-school" />
           <v-list-item :title="t('login')" to="/login" prepend-icon="mdi-login" />
           <v-list-item :title="t('register')" to="/register" prepend-icon="mdi-account-plus" />
         </template>
@@ -517,8 +529,80 @@ function studentNavActive(name) {
 
     <v-main class="admin-shell-main" :class="{ 'student-shell-main': isStudentShell }">
       <router-view v-if="isLanding" />
-      <div v-else-if="isStudentShell" class="student-main-wrap">
-        <router-view />
+      <div
+        v-else-if="isStudentShell"
+        class="student-desk"
+        :class="{
+          'is-collapsed': studentSideCollapsed,
+          'is-menu-open': studentMenuOpen,
+        }"
+      >
+        <button
+          v-if="studentMenuOpen"
+          type="button"
+          class="student-desk__scrim"
+          :aria-label="t('close')"
+          @click="studentMenuOpen = false"
+        />
+        <aside class="student-side" :aria-label="t('studentDashboard')">
+          <div class="student-side__card">
+            <div class="student-side__brand">
+              <router-link class="student-side__logo" :to="{ name: 'home' }" :aria-label="t('appName')">
+                <img :src="arLogo" :alt="t('appName')" width="140" height="48">
+              </router-link>
+              <button
+                type="button"
+                class="student-side__collapse"
+                :aria-label="t('openMenu')"
+                @click="toggleStudentSide"
+              >
+                <v-icon :icon="mdAndUp ? 'mdi-dock-left' : 'mdi-close'" size="20" />
+              </button>
+            </div>
+
+            <nav class="student-side__nav">
+              <router-link
+                v-for="link in studentLinks"
+                :key="link.name"
+                class="student-side__link"
+                active-class=""
+                exact-active-class=""
+                :class="{ 'is-active': studentNavActive(link.name) }"
+                :to="{ name: link.name }"
+                :title="link.label"
+                @click="studentMenuOpen = false"
+              >
+                <v-icon :icon="link.icon" size="22" />
+                <span>{{ link.label }}</span>
+              </router-link>
+            </nav>
+
+            <div class="student-side__foot">
+              <router-link
+                class="student-side__chip"
+                :to="{ name: 'courses' }"
+                @click="studentMenuOpen = false"
+              >
+                <v-icon icon="mdi-school-outline" size="18" />
+                <span>{{ t('courses') }}</span>
+              </router-link>
+              <router-link
+                class="student-side__chip student-side__chip--dark"
+                :to="{ name: 'home' }"
+                @click="studentMenuOpen = false"
+              >
+                <v-icon icon="mdi-web" size="18" />
+                <span>{{ t('viewWebsite') }}</span>
+              </router-link>
+            </div>
+          </div>
+        </aside>
+
+        <div class="student-desk__main">
+          <div class="student-main-wrap">
+            <router-view />
+          </div>
+        </div>
       </div>
       <v-container v-else class="admin-main-wrap py-3 py-md-4" fluid>
         <router-view />
@@ -588,6 +672,24 @@ function studentNavActive(name) {
   font-weight: 600;
 }
 
+.admin-bar__avatar {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-bar__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .admin-drawer {
   overflow-x: hidden !important;
 }
@@ -655,49 +757,233 @@ function studentNavActive(name) {
   padding: 0 !important;
 }
 
-.student-main-wrap {
-  width: min(960px, calc(100% - 1.5rem));
-  margin: 0 auto;
-  padding: 1rem 0 1.75rem;
-  min-width: 0;
+.student-desk {
+  --side-w: 260px;
+  --side-collapsed: 88px;
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: calc(100dvh - 64px);
+  padding: 0.85rem 0.85rem 1.25rem;
+  background: #f3f5f8;
+  transition: grid-template-columns 220ms ease;
 }
 
-.student-subnav {
-  border-top: 1px solid #eef2f6;
-  background: #fff;
+.student-desk.is-collapsed {
+  grid-template-columns: var(--side-collapsed) minmax(0, 1fr);
 }
 
-.student-subnav__inner {
-  width: min(960px, calc(100% - 1.5rem));
-  margin: 0 auto;
+.student-desk__scrim {
+  display: none;
+}
+
+.student-side {
+  position: sticky;
+  top: 0.85rem;
+  align-self: start;
+  height: calc(100dvh - 64px - 1.7rem);
+  z-index: 5;
+}
+
+.student-side__card {
   display: flex;
-  gap: 0.4rem;
-  padding: 0.55rem 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 1.15rem;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
+  border: 1px solid #eef2f6;
+  overflow: hidden;
 }
 
-.student-subnav__link {
+.student-side__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 0.85rem 0.65rem;
+}
+
+.student-side__logo {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 0.85rem;
-  border-radius: 999px;
-  color: #475467;
+  min-width: 0;
   text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
+  line-height: 0;
 }
 
-.student-subnav__link:hover {
+.student-side__logo img {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: 132px;
+  object-fit: contain;
+}
+
+.student-side__collapse {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #e6ebf2;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #475467;
+  cursor: pointer;
+}
+
+.student-side__nav {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem 0.65rem 0.75rem;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.student-side__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 46px;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.75rem;
+  color: #667085;
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.student-side__link :deep(.v-icon) {
+  flex: 0 0 auto;
+}
+
+.student-side__link span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.student-side__link:hover {
   background: #f2f4f7;
   color: #0b1b34;
 }
 
-.student-subnav__link.is-active {
-  background: #0f5c66;
+.student-side__link.is-active {
+  background: #f5c518;
+  color: #1a1400;
+  box-shadow: inset 3px 0 0 #e0b000;
+}
+
+.student-side__foot {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border-top: 1px solid #eef2f6;
+}
+
+.student-side__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 42px;
+  padding: 0 0.8rem;
+  border-radius: 0.7rem;
+  border: 1.5px solid #f04438;
+  color: #f04438;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: #fff;
+}
+
+.student-side__chip--dark {
+  border-color: transparent;
+  background: linear-gradient(135deg, #0f5c66, #0a2a3a);
   color: #fff;
+}
+
+.student-desk.is-collapsed .student-side__logo img,
+.student-desk.is-collapsed .student-side__link span,
+.student-desk.is-collapsed .student-side__chip span {
+  display: none;
+}
+
+.student-desk.is-collapsed .student-side__brand {
+  justify-content: center;
+  padding-inline: 0.5rem;
+}
+
+.student-desk.is-collapsed .student-side__link {
+  justify-content: center;
+  padding-inline: 0.55rem;
+}
+
+.student-desk.is-collapsed .student-side__chip {
+  padding-inline: 0.4rem;
+}
+
+.student-desk__main {
+  min-width: 0;
+}
+
+.student-main-wrap {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.25rem 0.15rem 0.5rem;
+  min-width: 0;
+}
+
+@media (max-width: 959px) {
+  .student-desk {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.65rem 0.65rem 1rem;
+  }
+
+  .student-side {
+    position: fixed;
+    top: 64px;
+    left: 0.65rem;
+    bottom: 0.65rem;
+    width: min(280px, calc(100vw - 1.3rem));
+    height: auto;
+    z-index: 120;
+    transform: translateX(calc(-100% - 1rem));
+    transition: transform 220ms ease;
+  }
+
+  .student-desk.is-menu-open .student-side {
+    transform: none;
+  }
+
+  .student-desk__scrim {
+    display: block;
+    position: fixed;
+    inset: 64px 0 0;
+    z-index: 110;
+    border: 0;
+    background: rgba(11, 27, 52, 0.42);
+    cursor: pointer;
+  }
+
+  .student-desk.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-desk.is-collapsed .student-side__logo img,
+  .student-desk.is-collapsed .student-side__link span,
+  .student-desk.is-collapsed .student-side__chip span {
+    display: inline;
+  }
+
+  .student-desk.is-collapsed .student-side__link {
+    justify-content: flex-start;
+    padding-inline: 0.8rem;
+  }
 }
 </style>
