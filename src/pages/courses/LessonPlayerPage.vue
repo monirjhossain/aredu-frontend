@@ -24,6 +24,7 @@ const playlistQuery = ref('')
 const playlistFilter = ref('all')
 const theatreMode = ref(false)
 const openSectionIds = ref([])
+const playlistPanel = ref(null)
 const engagement = ref({
   likes: 0,
   dislikes: 0,
@@ -144,6 +145,10 @@ function goLesson(lesson) {
     name: 'lesson-player',
     params: { slug: route.params.slug, lessonId: lesson.id },
   })
+}
+
+function scrollToPlaylist() {
+  playlistPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function fetchCourseOutline(slug) {
@@ -401,9 +406,14 @@ watch(() => [route.params.slug, route.params.lessonId], load)
       >
         ← {{ t('backToCourse') }}
       </router-link>
-      <button type="button" class="lesson-player__theatre" @click="theatreMode = !theatreMode">
-        <v-icon size="18">{{ theatreMode ? 'mdi-arrow-collapse' : 'mdi-arrow-expand' }}</v-icon>
-        {{ theatreMode ? t('exitTheatreMode') : t('theatreMode') }}
+      <button
+        v-if="theatreMode"
+        type="button"
+        class="lesson-player__theatre-exit"
+        @click="theatreMode = false"
+      >
+        <v-icon size="18">mdi-arrow-collapse</v-icon>
+        {{ t('exitTheatreMode') }}
       </button>
     </div>
 
@@ -560,15 +570,19 @@ watch(() => [route.params.slug, route.params.lessonId], load)
         </div>
       </section>
 
-      <aside class="lesson-player__playlist">
+      <aside ref="playlistPanel" class="lesson-player__playlist" id="lesson-playlist">
         <div class="lesson-player__playlist-head">
           <div>
             <h2>{{ t('playlist') }}</h2>
             <p>{{ course?.title }}</p>
           </div>
-          <button type="button" class="lesson-player__theatre-mini" @click="theatreMode = !theatreMode">
-            <v-icon size="16">{{ theatreMode ? 'mdi-arrow-collapse' : 'mdi-arrow-expand' }}</v-icon>
-            {{ theatreMode ? t('exitTheatreMode') : t('theatreMode') }}
+          <button
+            type="button"
+            class="lesson-player__theatre-mini"
+            @click="theatreMode = true"
+          >
+            <v-icon size="16">mdi-arrow-expand</v-icon>
+            <span class="lesson-player__theatre-label">{{ t('theatreMode') }}</span>
           </button>
         </div>
 
@@ -663,6 +677,39 @@ watch(() => [route.params.slug, route.params.lessonId], load)
         </div>
       </aside>
     </div>
+
+    <nav
+      v-if="(course || playback) && !theatreMode"
+      class="lesson-player__dock"
+      aria-label="Lesson navigation"
+    >
+      <button
+        type="button"
+        class="lesson-player__dock-btn"
+        :disabled="!prevLesson"
+        @click="goLesson(prevLesson)"
+      >
+        <v-icon size="20">mdi-chevron-left</v-icon>
+        <span>{{ t('previousLesson') }}</span>
+      </button>
+      <button
+        type="button"
+        class="lesson-player__dock-btn lesson-player__dock-btn--primary"
+        @click="scrollToPlaylist"
+      >
+        <v-icon size="18">mdi-playlist-play</v-icon>
+        <span>{{ t('playlist') }}</span>
+      </button>
+      <button
+        type="button"
+        class="lesson-player__dock-btn"
+        :disabled="!nextLesson"
+        @click="goLesson(nextLesson)"
+      >
+        <span>{{ t('nextLesson') }}</span>
+        <v-icon size="20">mdi-chevron-right</v-icon>
+      </button>
+    </nav>
   </div>
 </template>
 
@@ -674,9 +721,20 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   --paper: #f5f7fa;
   --teal: #0f5c66;
   display: grid;
-  gap: 0.85rem;
+  gap: 0.75rem;
   color: var(--ink);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: 4.75rem;
+}
+
+@media (min-width: 980px) {
+  .lesson-player {
+    gap: 0.85rem;
+    padding-bottom: 0;
+  }
 }
 
 .lesson-player__top {
@@ -688,11 +746,11 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 }
 
 .lesson-player__back,
-.lesson-player__theatre {
+.lesson-player__theatre-exit {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  min-height: 40px;
+  min-height: 44px;
   color: var(--teal);
   text-decoration: none;
   font-size: 0.86rem;
@@ -704,7 +762,7 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   font-weight: 700;
 }
 
-.lesson-player__theatre {
+.lesson-player__theatre-exit {
   padding: 0 0.75rem;
   border-radius: 0.55rem;
   border: 1px solid var(--line);
@@ -748,9 +806,16 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 }
 
 .lesson-player__main {
-  padding: 0.75rem;
+  padding: 0.55rem;
   display: grid;
-  gap: 0.85rem;
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .lesson-player__main {
+    padding: 0.75rem;
+    gap: 0.85rem;
+  }
 }
 
 .lesson-player__frame {
@@ -759,7 +824,13 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   padding-top: 56.25%;
   background: #111;
   overflow: hidden;
-  border-radius: 0.75rem;
+  border-radius: 0.55rem;
+}
+
+@media (min-width: 720px) {
+  .lesson-player__frame {
+    border-radius: 0.75rem;
+  }
 }
 
 .lesson-player__frame iframe,
@@ -806,18 +877,54 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 }
 
 .lesson-player__engage {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
   align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+@media (max-width: 559px) {
+  .lesson-player__engage {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lesson-player__feedback-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .lesson-player__vote {
+    width: 100%;
+  }
+
+  .lesson-player__step {
+    width: 100%;
+  }
+}
+
+@media (min-width: 860px) {
+  .lesson-player__engage {
+    display: flex;
+    flex-wrap: wrap;
+    width: auto;
+  }
 }
 
 .lesson-player__secondary {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+@media (min-width: 560px) {
+  .lesson-player__secondary {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
 }
 
 .lesson-player__step-hint {
@@ -826,6 +933,7 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .lesson-player__section {
@@ -873,7 +981,7 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 0.9rem;
   border: 0;
   border-radius: 0.55rem;
@@ -898,8 +1006,8 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  min-height: 40px;
-  min-width: 40px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 0.7rem;
   border: 1px solid var(--line);
   border-radius: 0.55rem;
@@ -978,12 +1086,22 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 
 .lesson-player__nav,
 .lesson-player__complete {
-  min-height: 40px;
+  min-height: 44px;
   border: 0;
   border-radius: 0.55rem;
   cursor: pointer;
   font: inherit;
   font-weight: 800;
+}
+
+.lesson-player__complete {
+  width: 100%;
+}
+
+@media (min-width: 560px) {
+  .lesson-player__complete {
+    width: auto;
+  }
 }
 
 .lesson-player__nav {
@@ -1169,13 +1287,29 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 
 .lesson-player__filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.45rem;
   margin: 0 1rem 0.85rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.15rem;
+}
+
+.lesson-player__filters::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 560px) {
+  .lesson-player__filters {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
 }
 
 .lesson-player__filter {
-  min-height: 36px;
+  flex: 0 0 auto;
+  min-height: 40px;
   padding: 0 0.95rem;
   border: 1px solid #e5e7eb;
   border-radius: 999px;
@@ -1185,6 +1319,7 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .lesson-player__filter.is-active {
@@ -1341,5 +1476,118 @@ watch(() => [route.params.slug, route.params.lessonId], load)
   margin: 0.5rem 0.25rem;
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.lesson-player__dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -8px 24px rgba(11, 27, 52, 0.08);
+}
+
+@media (min-width: 980px) {
+  .lesson-player__dock {
+    display: none;
+  }
+}
+
+.lesson-player__dock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 44px;
+  padding: 0 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lesson-player__dock-btn span {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lesson-player__dock-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lesson-player__dock-btn--primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+  min-width: 6.5rem;
+}
+
+.lesson-player__theatre-label {
+  display: none;
+}
+
+@media (min-width: 420px) {
+  .lesson-player__theatre-label {
+    display: inline;
+  }
+}
+
+@media (max-width: 979px) {
+  .lesson-player__main,
+  .lesson-player__playlist {
+    border-radius: 0.85rem;
+  }
+
+  .lesson-player__playlist {
+    max-height: min(70vh, 34rem);
+  }
+
+  .lesson-player__sections {
+    max-height: none;
+  }
+
+  .lesson-player__meta h1 {
+    font-size: 1.05rem;
+  }
+
+  .lesson-player__step-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 419px) {
+  .lesson-player__dock-btn span {
+    max-width: 4.5rem;
+    font-size: 0.68rem;
+  }
+
+  .lesson-player__playlist-head {
+    padding: 0.85rem 0.75rem 0.4rem;
+  }
+
+  .lesson-player__search,
+  .lesson-player__filters {
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
+  }
+
+  .lesson-player__sections {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
 }
 </style>
