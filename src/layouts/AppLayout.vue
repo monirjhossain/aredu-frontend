@@ -375,6 +375,12 @@ function navActive(name) {
           />
           <v-list-item
             v-if="auth.hasPermission('payments.manage')"
+            :title="t('manageOrders')"
+            to="/admin/orders"
+            prepend-icon="mdi-receipt-text-outline"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('payments.manage')"
             :title="t('managePayments')"
             to="/admin/payments"
             prepend-icon="mdi-cash-refund"

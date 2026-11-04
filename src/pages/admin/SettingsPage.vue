@@ -25,6 +25,9 @@ const settings = reactive({
   about_text: '',
   landing_videos: [],
   logo_url: null,
+  bkash_payment: { qr_url: null, merchant_number: '', note: '' },
+  bkash_merchant_number: '',
+  bkash_payment_note: '',
   payment_gateways: { sslcommerz: {}, bkash: {} },
   course_access_rules: {},
   notification_preferences: {
@@ -42,6 +45,9 @@ const logPage = ref(1)
 const logAction = ref('')
 const logLoading = ref(false)
 const logoFile = ref(null)
+const bkashQrFile = ref(null)
+const uploadingQr = ref(false)
+const removingQr = ref(false)
 
 onMounted(async () => {
   await loadSettings()
@@ -70,6 +76,9 @@ function applySettings(payload) {
     ? payload.landing_videos.map((row) => ({ title: row.title || '', url: row.url || '' }))
     : []
   settings.logo_url = payload.logo_url || null
+  settings.bkash_payment = payload.bkash_payment || { qr_url: null, merchant_number: '', note: '' }
+  settings.bkash_merchant_number = payload.bkash_merchant_number || payload.bkash_payment?.merchant_number || ''
+  settings.bkash_payment_note = payload.bkash_payment_note || payload.bkash_payment?.note || ''
   settings.payment_gateways = payload.payment_gateways || { sslcommerz: {}, bkash: {} }
   settings.course_access_rules = payload.course_access_rules || {}
   settings.notification_preferences = {
@@ -104,6 +113,8 @@ async function saveSettings() {
       landing_videos: settings.landing_videos
         .filter((row) => row.url?.trim())
         .map((row) => ({ title: row.title?.trim() || 'Video', url: row.url.trim() })),
+      bkash_merchant_number: settings.bkash_merchant_number || null,
+      bkash_payment_note: settings.bkash_payment_note || null,
       ...settings.notification_preferences,
     }, { skipErrorToast: true, skipSuccessToast: true })
     applySettings(data.data || {})
@@ -146,6 +157,39 @@ async function removeLogo() {
     formError.value = apiError(error).message || t('requestFailed')
   } finally {
     removingLogo.value = false
+  }
+}
+
+async function uploadBkashQr() {
+  const file = Array.isArray(bkashQrFile.value) ? bkashQrFile.value[0] : bkashQrFile.value
+  if (!file) return
+  uploadingQr.value = true
+  formError.value = ''
+  try {
+    const body = new FormData()
+    body.append('qr', file)
+    const { data } = await http.post('/admin/settings/bkash-qr', body, { skipErrorToast: true, skipSuccessToast: true })
+    applySettings(data.data || {})
+    bkashQrFile.value = null
+    ui.success(t('bkashQrUpdated'))
+  } catch (error) {
+    formError.value = apiError(error).message || t('requestFailed')
+  } finally {
+    uploadingQr.value = false
+  }
+}
+
+async function removeBkashQr() {
+  removingQr.value = true
+  formError.value = ''
+  try {
+    const { data } = await http.delete('/admin/settings/bkash-qr', { skipErrorToast: true, skipSuccessToast: true })
+    applySettings(data.data || {})
+    ui.success(t('bkashQrRemoved'))
+  } catch (error) {
+    formError.value = apiError(error).message || t('requestFailed')
+  } finally {
+    removingQr.value = false
   }
 }
 
@@ -348,32 +392,51 @@ function applyLogFilter() {
 
           <section class="admin-ui__panel">
             <div class="admin-ui__panel-head">
-              <h2>{{ t('paymentGatewayStatus') }}</h2>
+              <div>
+                <h2>{{ t('bkashQrSettings') }}</h2>
+                <p>{{ t('bkashQrSettingsLead') }}</p>
+              </div>
             </div>
-            <div class="admin-ui__list">
-              <article class="admin-ui__row">
-                <div class="admin-ui__row-main">
-                  <div>
-                    <h3 class="admin-ui__row-title">SSLCommerz</h3>
-                    <p class="admin-ui__row-meta">
-                      {{ settings.payment_gateways.sslcommerz?.configured ? t('configured') : t('notConfigured') }}
-                      · {{ settings.payment_gateways.sslcommerz?.sandbox ? t('sandbox') : t('live') }}
-                    </p>
-                  </div>
-                </div>
-              </article>
-              <article class="admin-ui__row">
-                <div class="admin-ui__row-main">
-                  <div>
-                    <h3 class="admin-ui__row-title">bKash</h3>
-                    <p class="admin-ui__row-meta">
-                      {{ settings.payment_gateways.bkash?.configured ? t('configured') : t('notConfigured') }}
-                      · {{ settings.payment_gateways.bkash?.sandbox ? t('sandbox') : t('live') }}
-                    </p>
-                  </div>
-                </div>
-              </article>
+            <img
+              v-if="settings.bkash_payment?.qr_url"
+              :src="settings.bkash_payment.qr_url"
+              alt=""
+              class="admin-dialog__cover mb-3"
+            >
+            <v-file-input
+              v-model="bkashQrFile"
+              :label="t('uploadBkashQr')"
+              accept="image/jpeg,image/png,image/webp"
+              show-size
+              class="mb-2"
+            />
+            <div class="d-flex flex-wrap ga-2 mb-3">
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--solid"
+                :disabled="!bkashQrFile || uploadingQr"
+                @click="uploadBkashQr"
+              >
+                {{ t('uploadBkashQr') }}
+              </button>
+              <button
+                v-if="settings.bkash_payment?.qr_url"
+                type="button"
+                class="admin-ui__btn admin-ui__btn--danger"
+                :disabled="removingQr"
+                @click="removeBkashQr"
+              >
+                {{ t('remove') }}
+              </button>
             </div>
+            <label class="admin-ui__field mb-3">
+              <span>{{ t('bkashNumber') }}</span>
+              <input v-model="settings.bkash_merchant_number" type="text" placeholder="01XXXXXXXXX">
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('bkashPaymentNote') }}</span>
+              <textarea v-model="settings.bkash_payment_note" rows="3" />
+            </label>
           </section>
 
           <section class="admin-ui__panel">

@@ -23,6 +23,7 @@ function close() {
     :max-width="maxWidth"
     :persistent="persistent"
     content-class="admin-dialog"
+    scrim="rgba(16, 42, 46, 0.45)"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div class="admin-dialog__card" :class="{ 'admin-dialog__card--danger': danger }">

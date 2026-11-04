@@ -344,17 +344,17 @@ async function confirmDelete() {
       :title="editingRole ? t('editRole') : t('newRole')"
       :max-width="480"
     >
-      <v-alert v-if="formError" type="error" variant="tonal" class="mb-3">{{ formError }}</v-alert>
+      <v-alert v-if="formError" type="error" variant="tonal">{{ formError }}</v-alert>
       <div class="admin-ui__form-grid">
         <label class="admin-ui__field">
           <span>{{ t('roleName') }}</span>
           <input v-model="roleForm.name" type="text">
-          <small v-if="fieldErrors.name?.length" style="color:#e85d4c">{{ fieldErrors.name[0] }}</small>
+          <small v-if="fieldErrors.name?.length" class="admin-ui__field-error">{{ fieldErrors.name[0] }}</small>
         </label>
         <label class="admin-ui__field">
           <span>{{ t('roleSlug') }}</span>
           <input v-model="roleForm.slug" type="text" :readonly="!!editingRole?.is_system" placeholder="users_manager">
-          <small v-if="fieldErrors.slug?.length" style="color:#e85d4c">{{ fieldErrors.slug[0] }}</small>
+          <small v-if="fieldErrors.slug?.length" class="admin-ui__field-error">{{ fieldErrors.slug[0] }}</small>
         </label>
       </div>
       <template #actions>

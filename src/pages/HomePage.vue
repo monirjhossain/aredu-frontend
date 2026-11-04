@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CourseCard from '../components/marketing/CourseCard.vue'
+import MarketingFooter from '../components/marketing/MarketingFooter.vue'
 import { useAuthStore } from '../stores/auth'
 import { http } from '../services/http'
 import { apiError } from '../utils/apiError'
@@ -48,6 +49,15 @@ const courseFilters = computed(() => [
     label: t('general'),
     count: courses.value.filter((c) => c.exam_type === 'general').length,
   },
+])
+
+const testimonials = computed(() => [
+  { initials: 'FA', nameKey: 'landingTestimonial1Name', roleKey: 'landingTestimonial1Role', quoteKey: 'landingTestimonial1Quote' },
+  { initials: 'SR', nameKey: 'landingTestimonial2Name', roleKey: 'landingTestimonial2Role', quoteKey: 'landingTestimonial2Quote' },
+  { initials: 'NK', nameKey: 'landingTestimonial3Name', roleKey: 'landingTestimonial3Role', quoteKey: 'landingTestimonial3Quote' },
+  { initials: 'RH', nameKey: 'landingTestimonial4Name', roleKey: 'landingTestimonial4Role', quoteKey: 'landingTestimonial4Quote' },
+  { initials: 'TA', nameKey: 'landingTestimonial5Name', roleKey: 'landingTestimonial5Role', quoteKey: 'landingTestimonial5Quote' },
+  { initials: 'MI', nameKey: 'landingTestimonial6Name', roleKey: 'landingTestimonial6Role', quoteKey: 'landingTestimonial6Quote' },
 ])
 
 onMounted(loadLanding)
@@ -179,6 +189,35 @@ function scrollToCourses() {
         </div>
       </section>
 
+      <section class="ostad-section ostad-stories" aria-labelledby="landing-stories-title">
+        <div class="ostad-wrap ostad-stories__wrap">
+          <div class="ostad-stories__head">
+            <h2 id="landing-stories-title">{{ t('landingStoriesTitle') }}</h2>
+            <p>{{ t('landingStoriesLead') }}</p>
+          </div>
+
+          <div class="ostad-stories__grid">
+            <article
+              v-for="item in testimonials"
+              :key="item.nameKey"
+              class="ostad-story"
+            >
+              <p class="ostad-story__quote">{{ t(item.quoteKey) }}</p>
+              <div class="ostad-story__foot">
+                <div class="ostad-story__person">
+                  <span class="ostad-story__avatar" aria-hidden="true">{{ item.initials }}</span>
+                  <div>
+                    <strong>{{ t(item.nameKey) }}</strong>
+                    <span>{{ t(item.roleKey) }}</span>
+                  </div>
+                </div>
+                <span class="ostad-story__mark" aria-hidden="true">”</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="ostad-section ostad-videos">
         <div class="ostad-wrap">
           <div class="ostad-videos__title">
@@ -295,6 +334,13 @@ function scrollToCourses() {
         </div>
       </section>
     </template>
+
+    <MarketingFooter
+      :brand-name="brandName"
+      :logo-url="branding.logo_url || ''"
+      :contact-information="branding.contact_information || ''"
+      :support-email="branding.support_email || ''"
+    />
   </div>
 </template>
 
@@ -577,7 +623,8 @@ function scrollToCourses() {
 .ostad-section__head h2,
 .ostad-about h2,
 .ostad-contact h2,
-.ostad-videos__title h2 {
+.ostad-videos__title h2,
+.ostad-stories__head h2 {
   margin: 0 0 0.55rem;
   font-size: clamp(1.35rem, 2.6vw, 1.75rem);
   font-weight: 800;
@@ -585,11 +632,112 @@ function scrollToCourses() {
 }
 
 .ostad-section__head p,
-.ostad-videos__lead {
+.ostad-videos__lead,
+.ostad-stories__head p {
   margin: 0;
   color: var(--muted);
   font-size: 1.02rem;
   line-height: 1.55;
+}
+
+.ostad-stories {
+  background: #f5f7fa;
+}
+
+.ostad-stories__wrap {
+  width: min(1100px, calc(100% - 2rem));
+}
+
+.ostad-stories__head {
+  max-width: 42rem;
+  margin-bottom: 1.6rem;
+}
+
+.ostad-stories__grid {
+  columns: 1;
+  column-gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .ostad-stories__grid {
+    columns: 2;
+  }
+}
+
+@media (min-width: 1020px) {
+  .ostad-stories__grid {
+    columns: 3;
+  }
+}
+
+.ostad-story {
+  break-inside: avoid;
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1.15rem 1.1rem 1rem;
+  border-radius: 0.9rem;
+  background: #fff;
+  border: 1px solid #e8edf3;
+  box-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
+}
+
+.ostad-story__quote {
+  margin: 0;
+  color: #1f2a37;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.ostad-story__foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ostad-story__person {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.ostad-story__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f5c66, #14919b);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.ostad-story__person strong,
+.ostad-story__person span {
+  display: block;
+}
+
+.ostad-story__person strong {
+  font-size: 0.92rem;
+  color: #0b1b34;
+}
+
+.ostad-story__person span {
+  color: #667085;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.ostad-story__mark {
+  color: #f5c518;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 0.7;
+  font-family: Georgia, 'Times New Roman', serif;
 }
 
 .ostad-chips {

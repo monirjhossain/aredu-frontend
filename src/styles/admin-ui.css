@@ -1,6 +1,9 @@
 /* Shared admin UI pattern — mobile-first, teal shell */
 
-.admin-ui {
+:root,
+.admin-ui,
+.admin-dialog,
+.admin-dialog__card {
   --admin-teal: #0f5c66;
   --admin-teal-mid: #14919b;
   --admin-teal-deep: #0a3d44;
@@ -12,6 +15,9 @@
   --admin-yellow: #f5c518;
   --admin-yellow-ink: #1a1400;
   --admin-danger: #e85d4c;
+}
+
+.admin-ui {
   color: var(--admin-ink);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
   font-size: 14px;
@@ -203,26 +209,49 @@
 .admin-ui__field {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .admin-ui__field > span {
   color: var(--admin-muted);
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1.3;
 }
 
 .admin-ui__field input,
 .admin-ui__field select,
 .admin-ui__field textarea {
+  box-sizing: border-box;
   width: 100%;
-  min-height: 2.35rem;
-  padding: 0.45rem 0.7rem;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid var(--admin-line);
   border-radius: 0.6rem;
   background: #fff;
   color: var(--admin-ink);
   font: inherit;
   font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.admin-ui__field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--admin-muted) 50%),
+    linear-gradient(135deg, var(--admin-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+
+.admin-ui__field input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
 .admin-ui__field textarea {
@@ -230,11 +259,49 @@
   resize: vertical;
 }
 
+.admin-ui__field input::placeholder,
+.admin-ui__field textarea::placeholder {
+  color: #8aa0a4;
+  opacity: 1;
+}
+
+.admin-ui__field input:disabled,
+.admin-ui__field select:disabled,
+.admin-ui__field textarea:disabled {
+  background: var(--admin-paper);
+  color: var(--admin-muted);
+  cursor: not-allowed;
+}
+
 .admin-ui__field input:focus,
 .admin-ui__field select:focus,
 .admin-ui__field textarea:focus {
-  outline: 2px solid rgba(15, 92, 102, 0.25);
+  outline: 2px solid rgba(15, 92, 102, 0.22);
+  outline-offset: 1px;
   border-color: var(--admin-teal);
+}
+
+.admin-ui__field input[type='file'] {
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+}
+
+.admin-ui__field input[type='checkbox'],
+.admin-ui__field input[type='radio'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  min-height: 0;
+  min-width: 1.05rem;
+  padding: 0;
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
+.admin-ui__field small,
+.admin-ui__field-error {
+  color: var(--admin-danger);
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 .admin-ui__filter-actions {
@@ -367,6 +434,12 @@
   color: #b45309;
 }
 
+.admin-ui__chip--danger {
+  background: rgba(232, 93, 76, 0.12);
+  border-color: transparent;
+  color: #c2410c;
+}
+
 .admin-ui__row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -493,17 +566,33 @@
 /* Shared admin dialogs (teleported outside .admin-ui) */
 .admin-dialog {
   margin: 0.75rem !important;
+  align-self: center !important;
+}
+
+.admin-dialog.v-overlay__content,
+.v-overlay__content.admin-dialog {
+  padding: 0 !important;
+  max-height: calc(100vh - 1.5rem) !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
 }
 
 .admin-dialog__card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  max-height: calc(100vh - 1.5rem);
   border-radius: 1rem;
   background: #fff;
-  border: 1px solid #d9e6e8;
+  border: 1px solid var(--admin-line);
   box-shadow: 0 18px 48px rgba(16, 42, 46, 0.18);
   overflow: hidden;
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
-  color: #102a2e;
+  color: var(--admin-ink);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .admin-dialog__card--danger {
@@ -515,6 +604,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+  flex: 0 0 auto;
   padding: 1rem 1rem 0.85rem;
   background:
     linear-gradient(135deg, rgba(15, 92, 102, 0.08), rgba(20, 145, 155, 0.04));
@@ -562,11 +652,95 @@
 }
 
 .admin-dialog__body {
+  display: grid;
+  gap: 0.85rem;
   padding: 1rem;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-dialog__cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 0.6rem;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-paper);
+}
+
+.admin-dialog__preview {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.admin-dialog__preview-label {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-dialog__preview-frame {
+  position: relative;
+  width: 100%;
+  min-height: 280px;
+  padding-top: 56.25%;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid var(--admin-line);
+}
+
+@media (min-width: 640px) {
+  .admin-dialog__preview-frame {
+    min-height: 360px;
+  }
+}
+
+.admin-dialog__preview-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.admin-dialog__body .admin-ui__field,
+.admin-dialog__body .admin-ui__form-grid,
+.admin-dialog__body .v-input,
+.admin-dialog__body .v-alert,
+.admin-dialog__body .v-img {
+  margin-bottom: 0 !important;
+}
+
+.admin-dialog__body .admin-ui__form-grid {
+  gap: 0.85rem;
 }
 
 .admin-dialog__body .v-field {
   border-radius: 0.6rem !important;
+}
+
+.admin-dialog__body .v-field__input {
+  min-height: 2.5rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.admin-dialog__body .v-input {
+  width: 100%;
+}
+
+.admin-dialog__body .v-input__details {
+  padding-inline: 0.15rem;
+  min-height: 0;
 }
 
 .admin-dialog__body .v-btn {
@@ -575,12 +749,19 @@
   font-weight: 700;
 }
 
+.admin-dialog__body .admin-ui__switch {
+  width: fit-content;
+}
+
 .admin-dialog__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0 1rem 1rem;
+  flex: 0 0 auto;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid #e7f0f2;
+  background: #fff;
 }
 
 .admin-dialog__actions .admin-ui__btn {

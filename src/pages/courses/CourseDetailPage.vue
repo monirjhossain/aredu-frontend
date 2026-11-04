@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
 import { useAuthStore } from '../../stores/auth'
+import { useUiStore } from '../../stores/ui'
 import {
   discountPct,
   durationLabel,
@@ -18,6 +19,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const ui = useUiStore()
 
 const course = ref(null)
 const loading = ref(true)
@@ -76,23 +78,12 @@ async function purchase() {
   try {
     const { data } = await http.post('/orders', { course_ids: [course.value.id] }, { skipErrorToast: true })
     const order = data.data
-    purchaseNote.value = t('orderCreatedPendingPayment', {
+    purchaseNote.value = t('orderCreatedPayFromOrders', {
       number: order.order_number,
       total: order.total,
     })
-    try {
-      const payment = await http.post(`/orders/${order.id}/payments/sslcommerz`, {}, { skipErrorToast: true })
-      const url = payment.data.data.gateway_url
-      if (url) {
-        window.location.href = url
-        return
-      }
-    } catch {
-      purchaseNote.value = t('orderCreatedPayFromOrders', {
-        number: order.order_number,
-        total: order.total,
-      })
-    }
+    ui.success(purchaseNote.value)
+    router.push({ name: 'order-detail', params: { id: order.id } })
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {

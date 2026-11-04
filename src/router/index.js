@@ -28,6 +28,7 @@ import LearningCoursePage from '../pages/learning/LearningCoursePage.vue'
 import StudentDashboardPage from '../pages/learning/StudentDashboardPage.vue'
 import NotificationsPage from '../pages/NotificationsPage.vue'
 import PaymentsPage from '../pages/admin/PaymentsPage.vue'
+import AdminOrdersPage from '../pages/admin/OrdersPage.vue'
 import ReadingTestsPage from '../pages/admin/ReadingTestsPage.vue'
 import ReadingTestFormPage from '../pages/admin/ReadingTestFormPage.vue'
 import ReadingTestBuilderPage from '../pages/admin/ReadingTestBuilderPage.vue'
@@ -103,6 +104,7 @@ const router = createRouter({
         { path: 'admin', name: 'admin-dashboard', component: DashboardPage, meta: { requiresAuth: true, permission: 'reports.view', titleKey: 'adminDashboard' } },
         { path: 'admin/reports', name: 'admin-reports', component: ReportsPage, meta: { requiresAuth: true, anyPermission: ['reports.view', 'progress.view_assigned'], titleKey: 'reports' } },
         { path: 'admin/settings', name: 'admin-settings', component: SettingsPage, meta: { requiresAuth: true, permission: 'settings.manage', titleKey: 'settings' } },
+        { path: 'admin/orders', name: 'admin-orders', component: AdminOrdersPage, meta: { requiresAuth: true, permission: 'payments.manage', titleKey: 'manageOrders' } },
         { path: 'admin/payments', name: 'admin-payments', component: PaymentsPage, meta: { requiresAuth: true, permission: 'payments.manage', titleKey: 'managePayments' } },
         { path: 'admin/categories', name: 'admin-categories', component: CategoriesPage, meta: { requiresAuth: true, permission: 'categories.manage', titleKey: 'categories' } },
         { path: 'admin/courses', name: 'admin-courses', component: CoursesPage, meta: { requiresAuth: true, permission: 'courses.manage', titleKey: 'courses' } },

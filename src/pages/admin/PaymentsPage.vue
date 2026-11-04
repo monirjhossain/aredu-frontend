@@ -9,16 +9,23 @@ import { useUiStore } from '../../stores/ui'
 const { t } = useI18n()
 const ui = useUiStore()
 const payments = ref([])
+const pendingOrders = ref([])
 const loading = ref(true)
 const refundingId = ref(null)
+const confirmingId = ref(null)
 const message = ref('')
+const trxByOrder = ref({})
 
 async function load() {
   loading.value = true
   message.value = ''
   try {
-    const { data } = await http.get('/admin/payments', { skipErrorToast: true })
-    payments.value = data.data || []
+    const [paymentsRes, pendingRes] = await Promise.all([
+      http.get('/admin/payments', { skipErrorToast: true }),
+      http.get('/admin/payments/pending-orders', { skipErrorToast: true }),
+    ])
+    payments.value = paymentsRes.data.data || []
+    pendingOrders.value = pendingRes.data.data || []
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -41,6 +48,26 @@ async function refund(payment) {
   }
 }
 
+async function confirmBkash(order) {
+  confirmingId.value = order.id
+  message.value = ''
+  try {
+    const trx = String(trxByOrder.value[order.id] || '').trim()
+    await http.post(
+      `/admin/orders/${order.id}/confirm-bkash`,
+      trx ? { trx_id: trx } : {},
+      { skipErrorToast: true, skipSuccessToast: true },
+    )
+    ui.success(t('bkashPaymentConfirmed'))
+    trxByOrder.value[order.id] = ''
+    await load()
+  } catch (error) {
+    message.value = apiError(error).message || t('requestFailed')
+  } finally {
+    confirmingId.value = null
+  }
+}
+
 onMounted(load)
 
 function statusTone(status) {
@@ -54,6 +81,51 @@ function statusTone(status) {
   <div class="admin-ui">
     <AdminPageHero :title="t('managePayments')" :lead="t('paymentsLead')" />
 
+    <section class="admin-ui__panel">
+      <div class="admin-ui__panel-head">
+        <div>
+          <h2>{{ t('pendingBkashOrders') }}</h2>
+          <p>{{ t('bkashWaitAdmin') }}</p>
+        </div>
+      </div>
+
+      <div v-if="loading" class="admin-ui__loading">
+        <v-progress-circular indeterminate color="#0f5c66" size="36" />
+      </div>
+      <v-alert v-else-if="message" type="error" variant="tonal" class="mb-3">{{ message }}</v-alert>
+      <div v-else-if="pendingOrders.length === 0" class="admin-ui__empty">
+        <p>{{ t('noOrders') }}</p>
+      </div>
+      <div v-else class="admin-ui__list">
+        <article v-for="order in pendingOrders" :key="order.id" class="admin-ui__row">
+          <div class="admin-ui__row-main">
+            <div>
+              <h3 class="admin-ui__row-title">{{ order.order_number }}</h3>
+              <p class="admin-ui__row-meta">
+                {{ order.user?.name }} · {{ order.user?.email }} · {{ order.total }} {{ order.currency || 'BDT' }}
+              </p>
+              <p v-if="order.items?.length" class="admin-ui__row-meta">
+                {{ order.items.map((item) => item.course_title).filter(Boolean).join(', ') }}
+              </p>
+              <label class="admin-ui__field mt-2">
+                <span>{{ t('trxIdOptional') }}</span>
+                <input v-model="trxByOrder[order.id]" type="text" :placeholder="t('trxIdOptional')">
+              </label>
+            </div>
+          </div>
+          <div class="admin-ui__row-actions">
+            <button
+              type="button"
+              class="admin-ui__btn admin-ui__btn--solid"
+              :disabled="confirmingId === order.id"
+              @click="confirmBkash(order)"
+            >
+              {{ t('confirmBkashPayment') }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <section class="admin-ui__panel">
       <div class="admin-ui__panel-head">
@@ -66,7 +138,6 @@ function statusTone(status) {
       <div v-if="loading" class="admin-ui__loading">
         <v-progress-circular indeterminate color="#0f5c66" size="36" />
       </div>
-      <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
       <div v-else-if="payments.length === 0" class="admin-ui__empty">
         <p>{{ t('noPaymentsAdmin') }}</p>
       </div>

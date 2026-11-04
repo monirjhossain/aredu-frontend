@@ -153,54 +153,56 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 </script>
 
 <template>
-<div>
+  <div>
     <v-btn
-            class="mb-4"
-            variant="text"
-            @click="router.push({ name: 'learning-course', params: { slug: route.params.slug } })"
-          >
-            {{ t('backToCourse') }}
-          </v-btn>
+      class="mb-4"
+      variant="text"
+      @click="router.push({ name: 'learning-course', params: { slug: route.params.slug } })"
+    >
+      {{ t('backToCourse') }}
+    </v-btn>
 
-          <h1 class="text-h5 mb-4">{{ lessonTitle || t('watchLesson') }}</h1>
+    <h1 class="text-h5 mb-4">{{ lessonTitle || t('watchLesson') }}</h1>
 
-          <v-progress-circular v-if="loading" indeterminate color="primary" />
-          <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
-          <template v-else-if="playback">
-            <div class="video-frame mb-3">
-              <iframe
-                v-if="iframeSrc"
-                :src="iframeSrc"
-                title="lesson video"
-                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-                allowfullscreen
-              />
-    <div class="d-flex flex-wrap align-center ga-3 mb-3">
-              <div class="text-body-2 text-medium-emphasis">
-                <span v-if="playback.duration_seconds != null">{{ t('secondsCount', { count: playback.duration_seconds }) }}</span>
-                <span v-if="playback.expires_in"> · {{ t('playbackExpiresIn', { count: playback.expires_in }) }}</span>
-                <span v-if="progress?.position_seconds"> · {{ t('resumeAt', { count: progress.position_seconds }) }}</span>
-              </div>
-              <v-spacer />
-              <v-chip v-if="isCompleted" color="success" variant="tonal" size="small">{{ t('completed') }}</v-chip>
-              <v-btn
-                v-else
-                color="primary"
-                :loading="completing"
-                @click="markComplete"
-              >
-                {{ t('markLessonComplete') }}
-              </v-btn>
-            </div>
-            <div v-if="courseProgress" class="text-body-2 text-medium-emphasis">
-              {{ t('courseProgress') }}:
-              {{ courseProgress.completed_lessons }}/{{ courseProgress.published_lessons }}
-              ({{ courseProgress.percent }}%)
-              <span v-if="certificate"> · {{ t('certificateIssued') }}: {{ certificate.certificate_number }}</span>
-            </div>
-
+    <v-progress-circular v-if="loading" indeterminate color="primary" />
+    <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
+    <template v-else-if="playback">
+      <div class="video-frame mb-3">
+        <iframe
+          v-if="iframeSrc"
+          :src="iframeSrc"
+          title="lesson video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin"
+        />
       </div>
-  </template></div>
+      <div class="d-flex flex-wrap align-center ga-3 mb-3">
+        <div class="text-body-2 text-medium-emphasis">
+          <span v-if="playback.provider">{{ playback.provider }}</span>
+          <span v-if="playback.duration_seconds != null"> · {{ t('secondsCount', { count: playback.duration_seconds }) }}</span>
+          <span v-if="playback.expires_in"> · {{ t('playbackExpiresIn', { count: playback.expires_in }) }}</span>
+          <span v-if="progress?.position_seconds"> · {{ t('resumeAt', { count: progress.position_seconds }) }}</span>
+        </div>
+        <v-spacer />
+        <v-chip v-if="isCompleted" color="success" variant="tonal" size="small">{{ t('completed') }}</v-chip>
+        <v-btn
+          v-else
+          color="primary"
+          :loading="completing"
+          @click="markComplete"
+        >
+          {{ t('markLessonComplete') }}
+        </v-btn>
+      </div>
+      <div v-if="courseProgress" class="text-body-2 text-medium-emphasis">
+        {{ t('courseProgress') }}:
+        {{ courseProgress.completed_lessons }}/{{ courseProgress.published_lessons }}
+        ({{ courseProgress.percent }}%)
+        <span v-if="certificate"> · {{ t('certificateIssued') }}: {{ certificate.certificate_number }}</span>
+      </div>
+    </template>
+  </div>
 </template>
 
 <style scoped>

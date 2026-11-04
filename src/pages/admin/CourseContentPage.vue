@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AdminDialog from '../../components/admin/AdminDialog.vue'
@@ -39,7 +39,8 @@ const lessonForm = reactive({
 const pendingDelete = ref(null)
 const videoDialog = ref(false)
 const videoTarget = ref(null)
-const videoFile = ref(null)
+const videoUrl = ref('')
+const videoDuration = ref('')
 const coverFile = ref(null)
 const videoBusy = ref(false)
 const videoMessage = ref('')
@@ -62,9 +63,64 @@ function videoLabel(status) {
   return t('videoNone')
 }
 
-function canReplace(video) {
-  return !video || video.status === 'failed'
+function canEditVideo(video) {
+  if (!video) return true
+  if (video.provider === 'youtube' || video.provider === 'vimeo') return true
+  if (video.provider === 'cloudflare' && (video.status === 'uploading' || video.status === 'processing')) return false
+  return true
 }
+
+function providerLabel(video) {
+  if (!video?.provider) return ''
+  if (video.provider === 'youtube') return 'YouTube'
+  if (video.provider === 'vimeo') return 'Vimeo'
+  return video.provider
+}
+
+function parseEmbedUrl(raw) {
+  const value = String(raw || '').trim()
+  if (!value) return ''
+
+  try {
+    const parsed = new URL(value)
+    const host = parsed.hostname.toLowerCase()
+    const path = parsed.pathname || ''
+
+    if (host.includes('youtu.be')) {
+      const id = path.replace(/^\/+/, '').split('/')[0]
+      if (id) return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`
+    }
+
+    if (host.includes('youtube.com') || host.includes('youtube-nocookie.com')) {
+      let id = ''
+      if (path.startsWith('/embed/')) id = path.slice(7).split('/')[0]
+      else if (path.startsWith('/shorts/')) id = path.slice(8).split('/')[0]
+      else if (path.startsWith('/live/')) id = path.slice(6).split('/')[0]
+      else id = parsed.searchParams.get('v') || ''
+      if (id) return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1`
+    }
+
+    if (host.includes('vimeo.com')) {
+      const segments = path.split('/').filter(Boolean)
+      const id = [...segments].reverse().find((part) => /^\d{6,12}$/.test(part))
+      if (id) return `https://player.vimeo.com/video/${id}`
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
+const previewEmbedSrc = computed(() => {
+  const fromInput = parseEmbedUrl(videoUrl.value)
+  if (fromInput) return fromInput
+  const saved = videoTarget.value?.video
+  if (saved?.embed_url && (saved.provider === 'youtube' || saved.provider === 'vimeo')) {
+    return saved.embed_url
+  }
+  return ''
+})
 
 async function load() {
   loading.value = true
@@ -217,11 +273,12 @@ async function sendOrder(url, body) {
 function openVideo(lesson) {
   stopPolling()
   videoTarget.value = lesson
-  videoFile.value = null
+  videoUrl.value = lesson.video?.source_url || lesson.video?.embed_url || ''
+  videoDuration.value = lesson.video?.duration_seconds != null ? String(lesson.video.duration_seconds) : ''
   coverFile.value = null
   videoMessage.value = ''
   videoDialog.value = true
-  if (lesson.video && (lesson.video.status === 'uploading' || lesson.video.status === 'processing')) {
+  if (lesson.video && !['youtube', 'vimeo'].includes(lesson.video.provider) && (lesson.video.status === 'uploading' || lesson.video.status === 'processing')) {
     startPolling(lesson.id)
   }
 }
@@ -229,7 +286,8 @@ function openVideo(lesson) {
 function closeVideo() {
   videoDialog.value = false
   videoTarget.value = null
-  videoFile.value = null
+  videoUrl.value = ''
+  videoDuration.value = ''
   coverFile.value = null
   stopPolling()
 }
@@ -247,22 +305,18 @@ async function uploadCover(lessonId) {
   const { data } = await http.post(`/admin/lessons/${lessonId}/video/cover`, body, {
     skipErrorToast: true,
     skipSuccessToast: true,
-    headers: { 'Content-Type': 'multipart/form-data' },
   })
   coverFile.value = null
   return data.data
 }
 
-async function uploadVideo() {
+async function saveVideo() {
   const lesson = videoTarget.value
-  const file = selectedFile(videoFile.value)
   const cover = selectedFile(coverFile.value)
   if (!lesson) return
-  if (!file && !lesson.video) {
-    videoMessage.value = t('noVideoSelected')
-    return
-  }
-  if (!file && cover && lesson.video) {
+
+  const url = videoUrl.value.trim()
+  if (!url && cover && lesson.video) {
     videoBusy.value = true
     videoMessage.value = ''
     try {
@@ -277,45 +331,33 @@ async function uploadVideo() {
     }
     return
   }
-  if (!file) {
-    videoMessage.value = t('noVideoSelected')
+
+  if (!url) {
+    videoMessage.value = t('videoUrlRequired')
     return
   }
 
   videoBusy.value = true
   videoMessage.value = ''
   try {
-    const { data } = await http.post(`/admin/lessons/${lesson.id}/video`, {}, { skipErrorToast: true, skipSuccessToast: true })
-    const uploadUrl = data.data.upload_url
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: file,
-      headers: {
-        'Content-Type': file.type || 'application/octet-stream',
-      },
+    const payload = { url }
+    if (videoDuration.value !== '') {
+      payload.duration_seconds = Number(videoDuration.value)
+    }
+    const { data } = await http.post(`/admin/lessons/${lesson.id}/video`, payload, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
     })
-    if (!response.ok) {
-      throw new Error(t('videoUploadFailed'))
-    }
-    let video = {
-      id: data.data.id,
-      status: data.data.status,
-      duration_seconds: data.data.duration_seconds,
-      error_message: data.data.error_message,
-      cover_url: data.data.cover_url,
-    }
+    let video = data.data
     if (cover) {
       video = await uploadCover(lesson.id)
     }
     lesson.video = video
-    ui.success(cover ? t('videoUploadStartedWithCover') : t('videoUploadStarted'))
-    videoFile.value = null
-    startPolling(lesson.id)
+    videoUrl.value = video.source_url || video.embed_url || url
+    ui.success(t('videoEmbedSaved'))
     await load()
   } catch (error) {
-    videoMessage.value = error?.message && !error.response
-      ? error.message
-      : (apiError(error).message || t('videoUploadFailed'))
+    videoMessage.value = apiError(error).message || t('videoEmbedFailed')
   } finally {
     videoBusy.value = false
   }
@@ -454,7 +496,7 @@ onBeforeUnmount(stopPolling)
             </div>
           </div>
           <div class="admin-ui__row-actions">
-            <button v-if="canManageVideos()" type="button" class="admin-ui__icon-btn" :aria-label="t('uploadVideo')" @click="openVideo(lesson)">
+            <button v-if="canManageVideos()" type="button" class="admin-ui__icon-btn" :aria-label="t('lessonVideo')" @click="openVideo(lesson)">
               <v-icon size="18">mdi-video</v-icon>
             </button>
             <button type="button" class="admin-ui__icon-btn" :aria-label="t('moveUp')" :disabled="lessonIndex === 0 || saving" @click="moveLesson(section, lessonIndex, -1)">
@@ -485,11 +527,11 @@ onBeforeUnmount(stopPolling)
       :title="sectionForm.id ? t('editSection') : t('newSection')"
       :max-width="480"
     >
-      <v-alert v-if="dialogError" class="mb-3" type="error" variant="tonal">{{ dialogError }}</v-alert>
+      <v-alert v-if="dialogError" type="error" variant="tonal">{{ dialogError }}</v-alert>
       <label class="admin-ui__field">
         <span>{{ t('name') }}</span>
         <input v-model="sectionForm.title" type="text">
-        <small v-if="fieldErrors.title?.length" style="color:#e85d4c">{{ fieldErrors.title[0] }}</small>
+        <small v-if="fieldErrors.title?.length" class="admin-ui__field-error">{{ fieldErrors.title[0] }}</small>
       </label>
       <template #actions>
         <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="sectionDialog = false">{{ t('cancel') }}</button>
@@ -502,17 +544,17 @@ onBeforeUnmount(stopPolling)
       :title="lessonForm.id ? t('editLesson') : t('newLesson')"
       :max-width="520"
     >
-      <v-alert v-if="dialogError" class="mb-3" type="error" variant="tonal">{{ dialogError }}</v-alert>
+      <v-alert v-if="dialogError" type="error" variant="tonal">{{ dialogError }}</v-alert>
       <div class="admin-ui__form-grid">
         <label class="admin-ui__field">
           <span>{{ t('name') }}</span>
           <input v-model="lessonForm.title" type="text">
-          <small v-if="fieldErrors.title?.length" style="color:#e85d4c">{{ fieldErrors.title[0] }}</small>
+          <small v-if="fieldErrors.title?.length" class="admin-ui__field-error">{{ fieldErrors.title[0] }}</small>
         </label>
         <label class="admin-ui__field">
           <span>{{ t('durationSeconds') }}</span>
           <input v-model="lessonForm.duration_seconds" type="number">
-          <small v-if="fieldErrors.duration_seconds?.length" style="color:#e85d4c">{{ fieldErrors.duration_seconds[0] }}</small>
+          <small v-if="fieldErrors.duration_seconds?.length" class="admin-ui__field-error">{{ fieldErrors.duration_seconds[0] }}</small>
         </label>
         <label class="admin-ui__switch">
           <input v-model="lessonForm.is_free_preview" type="checkbox">
@@ -531,71 +573,72 @@ onBeforeUnmount(stopPolling)
 
     <AdminDialog
       :model-value="videoDialog"
-      :title="canReplace(videoTarget?.video) ? t('uploadVideo') : t('videoStatus')"
-      :max-width="560"
+      :title="t('lessonVideo')"
+      :max-width="720"
       @update:model-value="(open) => !open && closeVideo()"
     >
-      <div class="mb-3 text-body-2">{{ videoTarget?.title }}</div>
-      <v-alert v-if="videoTarget?.video" class="mb-3" :type="videoTarget.video.status === 'failed' ? 'error' : 'info'" variant="tonal">
+      <div class="text-body-2">{{ videoTarget?.title }}</div>
+      <v-alert v-if="videoTarget?.video" :type="videoTarget.video.status === 'failed' ? 'error' : 'info'" variant="tonal">
         {{ t('videoStatus') }}: {{ videoLabel(videoTarget.video.status) }}
+        <span v-if="providerLabel(videoTarget.video)"> · {{ providerLabel(videoTarget.video) }}</span>
         <span v-if="videoTarget.video.duration_seconds != null"> · {{ videoTarget.video.duration_seconds }}s</span>
+        <div v-if="videoTarget.video.source_url" class="text-caption mt-1 text-break">{{ videoTarget.video.source_url }}</div>
         <div v-if="videoTarget.video.error_message">{{ videoTarget.video.error_message }}</div>
       </v-alert>
-      <v-img
+      <v-alert v-if="videoMessage" type="error" variant="tonal">{{ videoMessage }}</v-alert>
+      <p class="text-body-2 text-medium-emphasis ma-0">{{ t('videoEmbedHelp') }}</p>
+      <label class="admin-ui__field">
+        <span>{{ t('videoUrl') }}</span>
+        <input
+          v-model="videoUrl"
+          type="url"
+          :placeholder="t('videoUrlPlaceholder')"
+          :disabled="videoBusy || !canEditVideo(videoTarget?.video)"
+        >
+      </label>
+      <div v-if="previewEmbedSrc" class="admin-dialog__preview">
+        <div class="admin-dialog__preview-label">{{ t('videoPreview') }}</div>
+        <div class="admin-dialog__preview-frame">
+          <iframe
+            :src="previewEmbedSrc"
+            title="video preview"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      </div>
+      <img
         v-if="videoTarget?.video?.cover_url"
         :src="videoTarget.video.cover_url"
-        max-height="180"
-        class="mb-3 rounded"
-        cover
+        class="admin-dialog__cover"
+        alt=""
       />
-      <v-alert v-if="videoMessage" class="mb-3" type="error" variant="tonal">{{ videoMessage }}</v-alert>
-      <v-file-input
-        v-if="canReplace(videoTarget?.video)"
-        v-model="videoFile"
-        :label="t('chooseVideo')"
-        accept="video/*"
-        show-size
-        :disabled="videoBusy"
-        class="mb-2"
-      />
-      <v-file-input
-        v-if="canReplace(videoTarget?.video) || videoTarget?.video"
-        v-model="coverFile"
-        :label="t('chooseVideoCover')"
-        accept="image/jpeg,image/png,image/webp"
-        show-size
-        :disabled="videoBusy"
-        class="mb-2"
-      />
-      <div class="d-flex flex-wrap ga-2 mb-2">
-        <button
-          v-if="canReplace(videoTarget?.video) || (videoTarget?.video && coverFile)"
-          type="button"
-          class="admin-ui__btn admin-ui__btn--solid"
+      <label class="admin-ui__field">
+        <span>{{ t('durationSeconds') }} ({{ t('optional') }})</span>
+        <input v-model="videoDuration" type="number" min="0" :disabled="videoBusy">
+      </label>
+      <label class="admin-ui__field">
+        <span>{{ t('chooseVideoCover') }}</span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
           :disabled="videoBusy"
-          @click="uploadVideo"
+          @change="coverFile = $event.target.files?.[0] || null"
         >
-          {{ videoTarget?.video?.status === 'failed' ? t('replaceVideo') : (canReplace(videoTarget?.video) ? t('uploadVideo') : t('saveVideoCover')) }}
-        </button>
-        <button
-          v-if="videoTarget?.video?.cover_url"
-          type="button"
-          class="admin-ui__btn admin-ui__btn--danger"
-          :disabled="videoBusy"
-          @click="removeCover"
-        >
-          {{ t('removeVideoCover') }}
-        </button>
-      </div>
-      <v-alert
-        v-if="videoTarget?.video && (videoTarget.video.status === 'uploading' || videoTarget.video.status === 'processing')"
-        type="info"
-        variant="tonal"
+      </label>
+      <button
+        v-if="videoTarget?.video?.cover_url"
+        type="button"
+        class="admin-ui__btn admin-ui__btn--danger"
+        :disabled="videoBusy"
+        @click="removeCover"
       >
-        {{ t('videoWaiting') }}
-      </v-alert>
+        {{ t('removeVideoCover') }}
+      </button>
       <template #actions>
-        <button type="button" class="admin-ui__btn admin-ui__btn--soft" @click="closeVideo">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--soft" :disabled="videoBusy" @click="closeVideo">{{ t('cancel') }}</button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--solid" :disabled="videoBusy" @click="saveVideo">{{ t('saveVideo') }}</button>
       </template>
     </AdminDialog>
 

@@ -4,15 +4,18 @@ import { useI18n } from 'vue-i18n'
 import { http } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { useLocaleStore } from '../../stores/locale'
+import { useUiStore } from '../../stores/ui'
 import { apiError } from '../../utils/apiError'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const localeStore = useLocaleStore()
+const ui = useUiStore()
 
 const dashboard = ref(null)
 const message = ref('')
 const loading = ref(true)
+const activatingId = ref(null)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -90,6 +93,7 @@ const evaluationMix = computed(() => {
 const quickLinks = computed(() => [
   { to: { name: 'admin-courses' }, icon: 'mdi-book-plus-outline', label: t('courses'), show: auth.hasPermission('courses.manage') },
   { to: { name: 'admin-users' }, icon: 'mdi-account-group-outline', label: t('users'), show: auth.hasPermission('users.manage') },
+  { to: { name: 'admin-orders' }, icon: 'mdi-receipt-text-outline', label: t('manageOrders'), show: auth.hasPermission('payments.manage') },
   { to: { name: 'admin-payments' }, icon: 'mdi-credit-card-outline', label: t('managePayments'), show: auth.hasPermission('payments.manage') },
   {
     to: { name: 'admin-reports' },
@@ -99,7 +103,9 @@ const quickLinks = computed(() => [
   },
 ].filter((item) => item.show))
 
-onMounted(async () => {
+async function loadDashboard() {
+  loading.value = true
+  message.value = ''
   try {
     const { data } = await http.get('/admin/dashboard', { skipErrorToast: true })
     dashboard.value = data.data
@@ -108,7 +114,26 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+async function activatePackage(order) {
+  if (!auth.hasPermission('payments.manage') || order.status !== 'pending') return
+  activatingId.value = order.id
+  try {
+    await http.post(`/admin/orders/${order.id}/confirm-bkash`, {}, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    ui.success(t('packageActivated'))
+    await loadDashboard()
+  } catch (error) {
+    ui.toastError(apiError(error).message || t('requestFailed'))
+  } finally {
+    activatingId.value = null
+  }
+}
+
+onMounted(loadDashboard)
 
 function formatInt(value) {
   const locale = localeStore.locale === 'bn' ? 'bn-BD' : 'en-GB'
@@ -513,21 +538,32 @@ function buildDonut(items) {
             <router-link
               v-if="auth.hasPermission('payments.manage')"
               class="admin-panel__link"
-              :to="{ name: 'admin-payments' }"
+              :to="{ name: 'admin-orders' }"
             >
               {{ t('viewAll') }}
             </router-link>
           </div>
           <div v-if="dashboard.recent_orders.length === 0" class="admin-empty">{{ t('noOrders') }}</div>
           <ul v-else class="admin-feed">
-            <li v-for="order in dashboard.recent_orders" :key="order.id">
+            <li v-for="order in dashboard.recent_orders" :key="order.id" class="admin-feed__order">
               <div>
                 <strong>{{ order.order_number }}</strong>
                 <p>{{ order.user.name }} · {{ order.total }} {{ order.currency }}</p>
               </div>
-              <v-chip size="small" variant="tonal" :color="statusColor(order.status)">
-                {{ statusLabel(order.status) }}
-              </v-chip>
+              <div class="admin-feed__order-actions">
+                <v-chip size="small" variant="tonal" :color="statusColor(order.status)">
+                  {{ statusLabel(order.status) }}
+                </v-chip>
+                <button
+                  v-if="order.status === 'pending' && auth.hasPermission('payments.manage')"
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--solid"
+                  :disabled="activatingId === order.id"
+                  @click="activatePackage(order)"
+                >
+                  {{ t('activatePackage') }}
+                </button>
+              </div>
             </li>
           </ul>
         </article>
@@ -980,6 +1016,25 @@ function buildDonut(items) {
   padding: 0.65rem 0.7rem;
   border-radius: 0.75rem;
   background: var(--paper);
+}
+
+.admin-feed__order {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.admin-feed__order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.admin-feed__order-actions .admin-ui__btn {
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  font-size: 0.8rem;
 }
 
 .admin-feed__avatar {
