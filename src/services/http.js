@@ -23,7 +23,9 @@ function isMutating(method) {
 
 export function setupHttp() {
   http.interceptors.request.use((config) => {
-    useUiStore().startLoading()
+    if (!config.skipLoading) {
+      useUiStore().startLoading()
+    }
     const token = readToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -33,7 +35,9 @@ export function setupHttp() {
 
   http.interceptors.response.use(
     (response) => {
-      useUiStore().stopLoading()
+      if (!response.config?.skipLoading) {
+        useUiStore().stopLoading()
+      }
 
       const config = response.config || {}
       if (isMutating(config.method) && !config.skipSuccessToast) {
@@ -46,7 +50,9 @@ export function setupHttp() {
       return response
     },
     (error) => {
-      useUiStore().stopLoading()
+      if (!error.config?.skipLoading) {
+        useUiStore().stopLoading()
+      }
 
       if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
         handleUnauthorized()

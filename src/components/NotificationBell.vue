@@ -50,7 +50,7 @@ function stopPoll() {
 
 async function refreshCount() {
   try {
-    const { data } = await http.get('/notifications/unread-count', { skipErrorToast: true })
+    const { data } = await http.get('/notifications/unread-count', { skipErrorToast: true, skipLoading: true })
     unread.value = data.data?.unread_count ?? 0
   } catch {
     // keep last count
@@ -65,6 +65,7 @@ async function refresh() {
     const { data } = await http.get('/notifications', {
       params: { page: 1 },
       skipErrorToast: true,
+      skipLoading: true,
     })
     items.value = (data.data || []).slice(0, 8)
     unread.value = data.meta?.unread_count ?? 0
