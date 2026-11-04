@@ -429,6 +429,12 @@ function navActive(name) {
           />
           <v-list-item
             v-if="auth.hasPermission('users.manage')"
+            :title="t('manageStudents')"
+            to="/admin/students"
+            prepend-icon="mdi-school-outline"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('users.manage')"
             :title="t('users')"
             to="/admin/users"
             prepend-icon="mdi-account-group"

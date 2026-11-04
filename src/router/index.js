@@ -10,6 +10,8 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage.vue'
 import ResetPasswordPage from '../pages/auth/ResetPasswordPage.vue'
 import AccountPage from '../pages/auth/AccountPage.vue'
 import UsersPage from '../pages/admin/UsersPage.vue'
+import StudentsPage from '../pages/admin/StudentsPage.vue'
+import StudentDetailPage from '../pages/admin/StudentDetailPage.vue'
 import RolesPage from '../pages/admin/RolesPage.vue'
 import DashboardPage from '../pages/admin/DashboardPage.vue'
 import ReportsPage from '../pages/admin/ReportsPage.vue'
@@ -112,6 +114,8 @@ const router = createRouter({
         { path: 'admin/courses/:id/content', name: 'admin-course-content', component: CourseContentPage, meta: { requiresAuth: true, anyPermission: ['lessons.manage', 'lessons.manage_assigned', 'courses.manage'], titleKey: 'courseContent' } },
         { path: 'admin/courses/:id', name: 'admin-course-edit', component: CourseFormPage, meta: { requiresAuth: true, permission: 'courses.manage', titleKey: 'editCourse' } },
         { path: 'admin/users', name: 'admin-users', component: UsersPage, meta: { requiresAuth: true, permission: 'users.manage', titleKey: 'users' } },
+        { path: 'admin/students', name: 'admin-students', component: StudentsPage, meta: { requiresAuth: true, permission: 'users.manage', titleKey: 'manageStudents' } },
+        { path: 'admin/students/:id', name: 'admin-student-detail', component: StudentDetailPage, meta: { requiresAuth: true, permission: 'users.manage', titleKey: 'studentDetails' } },
         { path: 'admin/roles', name: 'admin-roles', component: RolesPage, meta: { requiresAuth: true, permission: 'roles.manage', titleKey: 'rolesPermissions' } },
         { path: 'admin/reading-tests', name: 'admin-reading-tests', component: ReadingTestsPage, meta: { requiresAuth: true, permission: 'mock_tests.manage', titleKey: 'manageReadingTests' } },
         { path: 'admin/reading-tests/new', name: 'admin-reading-test-create', component: ReadingTestFormPage, meta: { requiresAuth: true, permission: 'mock_tests.manage', titleKey: 'newReadingTest' } },

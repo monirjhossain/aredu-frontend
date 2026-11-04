@@ -92,6 +92,7 @@ const evaluationMix = computed(() => {
 
 const quickLinks = computed(() => [
   { to: { name: 'admin-courses' }, icon: 'mdi-book-plus-outline', label: t('courses'), show: auth.hasPermission('courses.manage') },
+  { to: { name: 'admin-students' }, icon: 'mdi-school-outline', label: t('manageStudents'), show: auth.hasPermission('users.manage') },
   { to: { name: 'admin-users' }, icon: 'mdi-account-group-outline', label: t('users'), show: auth.hasPermission('users.manage') },
   { to: { name: 'admin-orders' }, icon: 'mdi-receipt-text-outline', label: t('manageOrders'), show: auth.hasPermission('payments.manage') },
   { to: { name: 'admin-payments' }, icon: 'mdi-credit-card-outline', label: t('managePayments'), show: auth.hasPermission('payments.manage') },
