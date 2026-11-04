@@ -6,26 +6,30 @@ import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
 const router = useRouter()
+const ui = useUiStore()
 
 const tests = ref([])
 const meta = ref({ current_page: 1, last_page: 1, total: 0 })
 const page = ref(1)
 const search = ref('')
-const examType = ref(null)
-const published = ref(null)
+const examType = ref('')
+const published = ref('')
 const loading = ref(true)
 const message = ref('')
 const deleteTarget = ref(null)
 const deleting = ref(false)
 
 const examTypes = computed(() => [
+  { title: t('allTypes'), value: '' },
   { title: t('academic'), value: 'academic' },
   { title: t('general'), value: 'general' },
 ])
 const statuses = computed(() => [
+  { title: t('allStatuses'), value: '' },
   { title: t('published'), value: '1' },
   { title: t('unpublished'), value: '0' },
 ])
@@ -41,7 +45,7 @@ async function load() {
         search: search.value || undefined,
         page: page.value,
         exam_type: examType.value || undefined,
-        is_published: published.value ?? undefined,
+        is_published: published.value === '' ? undefined : published.value,
       },
       skipErrorToast: true,
     })
@@ -59,10 +63,27 @@ function applyFilters() {
   load()
 }
 
+function resetFilters() {
+  search.value = ''
+  examType.value = ''
+  published.value = ''
+  page.value = 1
+  load()
+}
+
+function goPage(next) {
+  page.value = next
+  load()
+}
+
 async function togglePublished(item, value) {
   try {
-    await http.put(`/admin/reading-tests/${item.id}/publication`, { is_published: value }, { skipErrorToast: true })
+    await http.put(`/admin/reading-tests/${item.id}/publication`, { is_published: value }, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
     item.is_published = value
+    ui.success(value ? t('published') : t('unpublished'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   }
@@ -72,7 +93,11 @@ async function confirmDelete() {
   if (!deleteTarget.value) return
   deleting.value = true
   try {
-    await http.delete(`/admin/reading-tests/${deleteTarget.value.id}`, { skipErrorToast: true })
+    await http.delete(`/admin/reading-tests/${deleteTarget.value.id}`, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    ui.success(t('readingTestDeleted'))
     deleteTarget.value = null
     await load()
   } catch (error) {
@@ -83,14 +108,13 @@ async function confirmDelete() {
 }
 
 function durationLabel(seconds) {
-  const mins = Math.round(Number(seconds || 0) / 60)
-  return t('minutesCount', { count: mins })
+  return t('minutesCount', { count: Math.round(Number(seconds || 0) / 60) })
 }
 </script>
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="t('manageReadingTests')">
+    <AdminPageHero :title="t('manageReadingTests')" :lead="t('readingAdminLead')">
       <template #actions>
         <button
           type="button"
@@ -104,40 +128,37 @@ function durationLabel(seconds) {
     </AdminPageHero>
 
     <section class="admin-ui__panel">
-      <form @submit.prevent="applyFilters">
-        <div class="admin-ui__filters admin-ui__filters--3">
-          <label class="admin-ui__field">
-            <span>{{ t('search') }}</span>
-            <input v-model="search" type="search">
-          </label>
-          <label class="admin-ui__field">
-            <span>{{ t('examType') }}</span>
-            <select v-model="examType">
-              <option :value="null">{{ t('allTypes') }}</option>
-              <option v-for="item in examTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
-            </select>
-          </label>
-          <label class="admin-ui__field">
-            <span>{{ t('status') }}</span>
-            <select v-model="published">
-              <option :value="null">{{ t('allStatuses') }}</option>
-              <option v-for="item in statuses" :key="item.value" :value="item.value">{{ item.title }}</option>
-            </select>
-          </label>
-        </div>
-        <div class="admin-ui__filter-actions">
-          <button type="submit" class="admin-ui__btn admin-ui__btn--solid">{{ t('filter') }}</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="admin-ui__panel">
       <div class="admin-ui__panel-head">
         <div>
           <h2>{{ t('manageReadingTests') }}</h2>
-          <p>{{ t('reportTotal', { count: meta.total || tests.length }) }}</p>
+          <p>{{ t('readingTestsListCount', { count: meta.total || tests.length }) }}</p>
         </div>
       </div>
+
+      <form class="admin-reading__filters" @submit.prevent="applyFilters">
+        <input
+          v-model="search"
+          class="admin-reading__filter-input admin-reading__filter-input--search"
+          type="search"
+          :placeholder="t('search')"
+        >
+        <select v-model="examType" class="admin-reading__filter-input">
+          <option v-for="item in examTypes" :key="item.value || 'all-type'" :value="item.value">
+            {{ item.title }}
+          </option>
+        </select>
+        <select v-model="published" class="admin-reading__filter-input">
+          <option v-for="item in statuses" :key="item.value || 'all-status'" :value="item.value">
+            {{ item.title }}
+          </option>
+        </select>
+        <button type="submit" class="admin-ui__btn admin-ui__btn--solid admin-reading__filter-btn">
+          {{ t('applyFilters') }}
+        </button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--ghost admin-reading__filter-btn" @click="resetFilters">
+          {{ t('resetFilters') }}
+        </button>
+      </form>
 
       <div v-if="loading" class="admin-ui__loading">
         <v-progress-circular indeterminate color="#0f5c66" size="36" />
@@ -146,62 +167,130 @@ function durationLabel(seconds) {
       <div v-else-if="tests.length === 0" class="admin-ui__empty">
         <p>{{ t('noReadingTests') }}</p>
       </div>
-      <div v-else class="admin-ui__list">
-        <article v-for="item in tests" :key="item.id" class="admin-ui__row">
-          <div class="admin-ui__row-main">
-            <div>
-              <h3 class="admin-ui__row-title">{{ item.title }}</h3>
-              <p class="admin-ui__row-meta">
-                {{ item.exam_type === 'general' ? t('general') : t('academic') }}
-                · {{ durationLabel(item.duration_seconds) }}
-                · {{ t('sections') }}: {{ item.sections_count ?? 0 }}
-              </p>
-              <div class="admin-ui__chips">
-                <span class="admin-ui__chip" :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'">
-                  {{ item.is_published ? t('published') : t('unpublished') }}
-                </span>
+
+      <template v-else>
+        <div class="admin-ui__table-wrap admin-reading__table-wrap">
+          <table class="admin-ui__table">
+            <thead>
+              <tr>
+                <th>{{ t('title') }}</th>
+                <th>{{ t('examType') }}</th>
+                <th>{{ t('duration') }}</th>
+                <th>{{ t('sections') }}</th>
+                <th>{{ t('status') }}</th>
+                <th>{{ t('actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in tests" :key="item.id">
+                <td>
+                  <div class="admin-reading__name">{{ item.title }}</div>
+                </td>
+                <td>{{ item.exam_type === 'general' ? t('general') : t('academic') }}</td>
+                <td>{{ durationLabel(item.duration_seconds) }}</td>
+                <td>{{ item.sections_count ?? 0 }}</td>
+                <td>
+                  <span
+                    class="admin-ui__chip"
+                    :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'"
+                  >
+                    {{ item.is_published ? t('published') : t('unpublished') }}
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-reading__actions">
+                    <label class="admin-ui__switch">
+                      <input
+                        type="checkbox"
+                        :checked="item.is_published"
+                        @change="togglePublished(item, $event.target.checked)"
+                      >
+                      {{ item.is_published ? t('published') : t('unpublished') }}
+                    </label>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--soft"
+                      @click="router.push({ name: 'admin-reading-test-builder', params: { id: item.id } })"
+                    >
+                      {{ t('buildContent') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--ghost"
+                      @click="router.push({ name: 'admin-reading-test-edit', params: { id: item.id } })"
+                    >
+                      {{ t('edit') }}
+                    </button>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--danger"
+                      @click="deleteTarget = item"
+                    >
+                      {{ t('delete') }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-ui__list admin-reading__cards">
+          <article v-for="item in tests" :key="`m-${item.id}`" class="admin-ui__row">
+            <div class="admin-ui__row-main">
+              <div>
+                <div class="admin-reading__title-row">
+                  <h3 class="admin-ui__row-title">{{ item.title }}</h3>
+                  <span
+                    class="admin-ui__chip"
+                    :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'"
+                  >
+                    {{ item.is_published ? t('published') : t('unpublished') }}
+                  </span>
+                </div>
+                <p class="admin-ui__row-meta">
+                  {{ item.exam_type === 'general' ? t('general') : t('academic') }}
+                  · {{ durationLabel(item.duration_seconds) }}
+                  · {{ t('sections') }} {{ item.sections_count ?? 0 }}
+                </p>
               </div>
             </div>
-          </div>
-          <div class="admin-ui__row-actions">
-            <label class="admin-ui__switch">
-              <input
-                type="checkbox"
-                :checked="item.is_published"
-                @change="togglePublished(item, $event.target.checked)"
+            <div class="admin-ui__row-actions">
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--soft"
+                @click="router.push({ name: 'admin-reading-test-builder', params: { id: item.id } })"
               >
-              {{ item.is_published ? t('published') : t('unpublished') }}
-            </label>
-            <button
-              type="button"
-              class="admin-ui__btn admin-ui__btn--soft"
-              @click="router.push({ name: 'admin-reading-test-builder', params: { id: item.id } })"
-            >
-              <v-icon size="18">mdi-format-list-bulleted</v-icon>
-              {{ t('buildContent') }}
-            </button>
-            <button
-              type="button"
-              class="admin-ui__icon-btn"
-              :aria-label="t('edit')"
-              @click="router.push({ name: 'admin-reading-test-edit', params: { id: item.id } })"
-            >
-              <v-icon size="18">mdi-pencil</v-icon>
-            </button>
-            <button
-              type="button"
-              class="admin-ui__icon-btn admin-ui__icon-btn--danger"
-              :aria-label="t('delete')"
-              @click="deleteTarget = item"
-            >
-              <v-icon size="18">mdi-delete</v-icon>
-            </button>
-          </div>
-        </article>
-      </div>
+                {{ t('buildContent') }}
+              </button>
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--ghost"
+                @click="router.push({ name: 'admin-reading-test-edit', params: { id: item.id } })"
+              >
+                {{ t('edit') }}
+              </button>
+              <button type="button" class="admin-ui__btn admin-ui__btn--danger" @click="deleteTarget = item">
+                {{ t('delete') }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
 
-      <div v-if="meta.last_page > 1" class="admin-ui__pager">
-        <v-pagination v-model="page" :length="meta.last_page" active-color="#0f5c66" total-visible="5" @update:model-value="load" />
+      <div v-if="meta.last_page > 1" class="admin-reading__pager">
+        <button type="button" class="admin-ui__btn admin-ui__btn--ghost" :disabled="page <= 1 || loading" @click="goPage(page - 1)">
+          {{ t('previous') }}
+        </button>
+        <span>{{ page }} / {{ meta.last_page }} · {{ meta.total }}</span>
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--ghost"
+          :disabled="page >= meta.last_page || loading"
+          @click="goPage(page + 1)"
+        >
+          {{ t('next') }}
+        </button>
       </div>
     </section>
 
@@ -220,3 +309,92 @@ function durationLabel(seconds) {
     </AdminDialog>
   </div>
 </template>
+
+<style scoped>
+.admin-reading__filters {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-reading__filters::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-reading__filter-input {
+  flex: 0 0 auto;
+  min-height: 2.4rem;
+  height: 2.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.55rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.admin-reading__filter-input--search {
+  flex: 1 1 12rem;
+  min-width: 11rem;
+  max-width: 18rem;
+}
+
+.admin-reading__filter-btn {
+  flex: 0 0 auto;
+  min-height: 2.4rem !important;
+  height: 2.4rem;
+  padding: 0 0.85rem !important;
+  font-size: 0.8rem !important;
+  white-space: nowrap;
+}
+
+.admin-reading__table-wrap {
+  display: none;
+}
+
+.admin-reading__cards {
+  display: grid;
+}
+
+.admin-reading__name {
+  font-weight: 750;
+  word-break: break-word;
+}
+
+.admin-reading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-reading__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.2rem;
+}
+
+.admin-reading__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 960px) {
+  .admin-reading__table-wrap {
+    display: block;
+  }
+
+  .admin-reading__cards {
+    display: none;
+  }
+}
+</style>

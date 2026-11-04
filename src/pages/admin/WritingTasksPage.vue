@@ -1,35 +1,42 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import AdminDialog from '../../components/admin/AdminDialog.vue'
 import AdminPageHero from '../../components/admin/AdminPageHero.vue'
 import { http } from '../../services/http'
 import { apiError } from '../../utils/apiError'
+import { useUiStore } from '../../stores/ui'
 
 const { t } = useI18n()
+const router = useRouter()
+const ui = useUiStore()
 
 const tasks = ref([])
 const meta = ref({ current_page: 1, last_page: 1, total: 0 })
 const page = ref(1)
 const search = ref('')
-const examType = ref(null)
-const taskType = ref(null)
-const published = ref(null)
+const examType = ref('')
+const taskType = ref('')
+const published = ref('')
 const loading = ref(true)
 const message = ref('')
 const deleteTarget = ref(null)
 const deleting = ref(false)
 
 const examTypes = computed(() => [
+  { title: t('allTypes'), value: '' },
   { title: t('academic'), value: 'academic' },
   { title: t('general'), value: 'general' },
 ])
 const taskTypes = computed(() => [
+  { title: t('allTypes'), value: '' },
   { title: t('writingTaskAcademic1'), value: 'academic_task_1' },
   { title: t('writingTaskGeneral1'), value: 'general_task_1' },
   { title: t('writingTask2'), value: 'task_2' },
 ])
 const statuses = computed(() => [
+  { title: t('allStatuses'), value: '' },
   { title: t('published'), value: '1' },
   { title: t('unpublished'), value: '0' },
 ])
@@ -46,7 +53,7 @@ async function load() {
         page: page.value,
         exam_type: examType.value || undefined,
         task_type: taskType.value || undefined,
-        is_published: published.value ?? undefined,
+        is_published: published.value === '' ? undefined : published.value,
       },
       skipErrorToast: true,
     })
@@ -64,6 +71,20 @@ function applyFilters() {
   load()
 }
 
+function resetFilters() {
+  search.value = ''
+  examType.value = ''
+  taskType.value = ''
+  published.value = ''
+  page.value = 1
+  load()
+}
+
+function goPage(next) {
+  page.value = next
+  load()
+}
+
 function taskTypeLabel(value) {
   if (value === 'academic_task_1') return t('writingTaskAcademic1')
   if (value === 'general_task_1') return t('writingTaskGeneral1')
@@ -71,10 +92,18 @@ function taskTypeLabel(value) {
   return value
 }
 
+function examLabel(type) {
+  return type === 'general' ? t('general') : t('academic')
+}
+
 async function togglePublished(item, value) {
   try {
-    await http.put(`/admin/writing-tasks/${item.id}/publication`, { is_published: value }, { skipErrorToast: true })
+    await http.put(`/admin/writing-tasks/${item.id}/publication`, { is_published: value }, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
     item.is_published = value
+    ui.success(value ? t('published') : t('unpublished'))
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   }
@@ -84,7 +113,11 @@ async function confirmDelete() {
   if (!deleteTarget.value) return
   deleting.value = true
   try {
-    await http.delete(`/admin/writing-tasks/${deleteTarget.value.id}`, { skipErrorToast: true })
+    await http.delete(`/admin/writing-tasks/${deleteTarget.value.id}`, {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    ui.success(t('writingTaskDeleted'))
     deleteTarget.value = null
     await load()
   } catch (error) {
@@ -97,60 +130,56 @@ async function confirmDelete() {
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="t('manageWritingTasks')">
+    <AdminPageHero :title="t('manageWritingTasks')" :lead="t('writingAdminLead')">
       <template #actions>
-        <RouterLink
-          :to="{ name: 'admin-writing-task-create' }"
+        <button
+          type="button"
           class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          @click="router.push({ name: 'admin-writing-task-create' })"
         >
           <v-icon size="18">mdi-plus</v-icon>
           {{ t('newWritingTask') }}
-        </RouterLink>
+        </button>
       </template>
     </AdminPageHero>
-
-    <section class="admin-ui__panel">
-      <form @submit.prevent="applyFilters">
-        <div class="admin-ui__filters">
-          <label class="admin-ui__field">
-            <span>{{ t('search') }}</span>
-            <input v-model="search" type="search">
-          </label>
-          <label class="admin-ui__field">
-            <span>{{ t('examType') }}</span>
-            <select v-model="examType">
-              <option :value="null">{{ t('allTypes') }}</option>
-              <option v-for="item in examTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
-            </select>
-          </label>
-          <label class="admin-ui__field">
-            <span>{{ t('writingTaskType') }}</span>
-            <select v-model="taskType">
-              <option :value="null">{{ t('allTypes') }}</option>
-              <option v-for="item in taskTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
-            </select>
-          </label>
-          <label class="admin-ui__field">
-            <span>{{ t('status') }}</span>
-            <select v-model="published">
-              <option :value="null">{{ t('allStatuses') }}</option>
-              <option v-for="item in statuses" :key="item.value" :value="item.value">{{ item.title }}</option>
-            </select>
-          </label>
-        </div>
-        <div class="admin-ui__filter-actions">
-          <button type="submit" class="admin-ui__btn admin-ui__btn--solid">{{ t('filter') }}</button>
-        </div>
-      </form>
-    </section>
 
     <section class="admin-ui__panel">
       <div class="admin-ui__panel-head">
         <div>
           <h2>{{ t('manageWritingTasks') }}</h2>
-          <p>{{ t('reportTotal', { count: meta.total || tasks.length }) }}</p>
+          <p>{{ t('writingTasksListCount', { count: meta.total || tasks.length }) }}</p>
         </div>
       </div>
+
+      <form class="admin-writing__filters" @submit.prevent="applyFilters">
+        <input
+          v-model="search"
+          class="admin-writing__filter-input admin-writing__filter-input--search"
+          type="search"
+          :placeholder="t('search')"
+        >
+        <select v-model="examType" class="admin-writing__filter-input">
+          <option v-for="item in examTypes" :key="item.value || 'all-exam'" :value="item.value">
+            {{ item.title }}
+          </option>
+        </select>
+        <select v-model="taskType" class="admin-writing__filter-input">
+          <option v-for="item in taskTypes" :key="item.value || 'all-task'" :value="item.value">
+            {{ item.title }}
+          </option>
+        </select>
+        <select v-model="published" class="admin-writing__filter-input">
+          <option v-for="item in statuses" :key="item.value || 'all-status'" :value="item.value">
+            {{ item.title }}
+          </option>
+        </select>
+        <button type="submit" class="admin-ui__btn admin-ui__btn--solid admin-writing__filter-btn">
+          {{ t('applyFilters') }}
+        </button>
+        <button type="button" class="admin-ui__btn admin-ui__btn--ghost admin-writing__filter-btn" @click="resetFilters">
+          {{ t('resetFilters') }}
+        </button>
+      </form>
 
       <div v-if="loading" class="admin-ui__loading">
         <v-progress-circular indeterminate color="#0f5c66" size="36" />
@@ -159,53 +188,114 @@ async function confirmDelete() {
       <div v-else-if="tasks.length === 0" class="admin-ui__empty">
         <p>{{ t('noWritingTasks') }}</p>
       </div>
-      <div v-else class="admin-ui__list">
-        <article v-for="item in tasks" :key="item.id" class="admin-ui__row">
-          <div class="admin-ui__row-main">
-            <div>
-              <h3 class="admin-ui__row-title">{{ item.title }}</h3>
-              <p class="admin-ui__row-meta">
-                {{ item.exam_type === 'general' ? t('general') : t('academic') }}
-                · {{ taskTypeLabel(item.task_type) }}
-                · {{ t('minWords') }}: {{ item.min_words }}
-              </p>
-              <div class="admin-ui__chips">
-                <span class="admin-ui__chip" :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'">
-                  {{ item.is_published ? t('published') : t('unpublished') }}
-                </span>
+
+      <template v-else>
+        <div class="admin-ui__table-wrap admin-writing__table-wrap">
+          <table class="admin-ui__table">
+            <thead>
+              <tr>
+                <th>{{ t('title') }}</th>
+                <th>{{ t('examType') }}</th>
+                <th>{{ t('writingTaskType') }}</th>
+                <th>{{ t('minWords') }}</th>
+                <th>{{ t('status') }}</th>
+                <th>{{ t('actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in tasks" :key="item.id">
+                <td>
+                  <div class="admin-writing__name">{{ item.title }}</div>
+                </td>
+                <td>{{ examLabel(item.exam_type) }}</td>
+                <td>{{ taskTypeLabel(item.task_type) }}</td>
+                <td>{{ item.min_words }}</td>
+                <td>
+                  <span class="admin-ui__chip" :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'">
+                    {{ item.is_published ? t('published') : t('unpublished') }}
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-writing__actions">
+                    <label class="admin-ui__switch">
+                      <input
+                        type="checkbox"
+                        :checked="item.is_published"
+                        @change="togglePublished(item, $event.target.checked)"
+                      >
+                      {{ item.is_published ? t('published') : t('unpublished') }}
+                    </label>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--ghost"
+                      @click="router.push({ name: 'admin-writing-task-edit', params: { id: item.id } })"
+                    >
+                      {{ t('edit') }}
+                    </button>
+                    <button type="button" class="admin-ui__btn admin-ui__btn--danger" @click="deleteTarget = item">
+                      {{ t('delete') }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-ui__list admin-writing__cards">
+          <article v-for="item in tasks" :key="`m-${item.id}`" class="admin-ui__row">
+            <div class="admin-ui__row-main">
+              <div>
+                <div class="admin-writing__title-row">
+                  <h3 class="admin-ui__row-title">{{ item.title }}</h3>
+                  <span class="admin-ui__chip" :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'">
+                    {{ item.is_published ? t('published') : t('unpublished') }}
+                  </span>
+                </div>
+                <p class="admin-ui__row-meta">
+                  {{ examLabel(item.exam_type) }}
+                  · {{ taskTypeLabel(item.task_type) }}
+                  · {{ t('minWords') }}: {{ item.min_words }}
+                </p>
               </div>
             </div>
-          </div>
-          <div class="admin-ui__row-actions">
-            <label class="admin-ui__switch">
-              <input
-                type="checkbox"
-                :checked="item.is_published"
-                @change="togglePublished(item, $event.target.checked)"
+            <div class="admin-ui__row-actions">
+              <label class="admin-ui__switch">
+                <input
+                  type="checkbox"
+                  :checked="item.is_published"
+                  @change="togglePublished(item, $event.target.checked)"
+                >
+                {{ item.is_published ? t('published') : t('unpublished') }}
+              </label>
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--ghost"
+                @click="router.push({ name: 'admin-writing-task-edit', params: { id: item.id } })"
               >
-              {{ item.is_published ? t('published') : t('unpublished') }}
-            </label>
-            <RouterLink
-              :to="{ name: 'admin-writing-task-edit', params: { id: item.id } }"
-              class="admin-ui__icon-btn"
-              :aria-label="t('edit')"
-            >
-              <v-icon size="18">mdi-pencil</v-icon>
-            </RouterLink>
-            <button
-              type="button"
-              class="admin-ui__icon-btn admin-ui__icon-btn--danger"
-              :aria-label="t('delete')"
-              @click="deleteTarget = item"
-            >
-              <v-icon size="18">mdi-delete</v-icon>
-            </button>
-          </div>
-        </article>
-      </div>
+                {{ t('edit') }}
+              </button>
+              <button type="button" class="admin-ui__btn admin-ui__btn--danger" @click="deleteTarget = item">
+                {{ t('delete') }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </template>
 
-      <div v-if="meta.last_page > 1" class="admin-ui__pager">
-        <v-pagination v-model="page" :length="meta.last_page" active-color="#0f5c66" total-visible="5" @update:model-value="load" />
+      <div v-if="meta.last_page > 1" class="admin-writing__pager">
+        <button type="button" class="admin-ui__btn admin-ui__btn--ghost" :disabled="page <= 1 || loading" @click="goPage(page - 1)">
+          {{ t('previous') }}
+        </button>
+        <span>{{ page }} / {{ meta.last_page }} · {{ meta.total }}</span>
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--ghost"
+          :disabled="page >= meta.last_page || loading"
+          @click="goPage(page + 1)"
+        >
+          {{ t('next') }}
+        </button>
       </div>
     </section>
 
@@ -224,3 +314,81 @@ async function confirmDelete() {
     </AdminDialog>
   </div>
 </template>
+
+<style scoped>
+.admin-writing__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-writing__filter-input {
+  flex: 1 1 9rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.55rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.admin-writing__filter-input--search {
+  flex: 2 1 14rem;
+}
+
+.admin-writing__filter-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.admin-writing__table-wrap {
+  display: none;
+}
+
+.admin-writing__cards {
+  display: grid;
+}
+
+.admin-writing__name {
+  font-weight: 750;
+  word-break: break-word;
+}
+
+.admin-writing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-writing__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.2rem;
+}
+
+.admin-writing__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 960px) {
+  .admin-writing__table-wrap {
+    display: block;
+  }
+
+  .admin-writing__cards {
+    display: none;
+  }
+}
+</style>

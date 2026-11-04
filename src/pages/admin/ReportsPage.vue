@@ -316,14 +316,23 @@ function reportIcon(key) {
           </div>
 
           <div v-if="meta.last_page > 1" class="reports__pager">
-            <v-pagination
-              v-model="page"
-              :length="meta.last_page"
-              density="comfortable"
-              active-color="#0f5c66"
-              total-visible="5"
-              @update:model-value="loadReport"
-            />
+            <button
+              type="button"
+              class="admin-ui__btn admin-ui__btn--ghost"
+              :disabled="page <= 1 || loadingReport"
+              @click="page -= 1; loadReport()"
+            >
+              {{ t('previous') }}
+            </button>
+            <span>{{ page }} / {{ meta.last_page }} · {{ meta.total }}</span>
+            <button
+              type="button"
+              class="admin-ui__btn admin-ui__btn--ghost"
+              :disabled="page >= meta.last_page || loadingReport"
+              @click="page += 1; loadReport()"
+            >
+              {{ t('next') }}
+            </button>
           </div>
         </template>
       </section>

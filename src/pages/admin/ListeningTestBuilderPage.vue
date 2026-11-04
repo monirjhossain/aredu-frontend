@@ -263,14 +263,14 @@ function onFile(files) {
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="test?.title || t('manageListeningTests')" :lead="test ? t('listeningFourSectionsNote') : ''">
+    <AdminPageHero :title="test?.title || t('manageListeningTests')" :lead="t('listeningBuilderLead')">
       <template #actions>
-        <RouterLink :to="{ name: 'admin-listening-tests' }" class="admin-ui__btn admin-ui__btn--ghost">
+        <RouterLink :to="{ name: 'admin-listening-tests' }" class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm">
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToListeningTests') }}
         </RouterLink>
         <template v-if="test">
-          <RouterLink :to="{ name: 'admin-listening-test-edit', params: { id: test.id } }" class="admin-ui__btn admin-ui__btn--primary">
+          <RouterLink :to="{ name: 'admin-listening-test-edit', params: { id: test.id } }" class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm">
             <v-icon size="18">mdi-pencil</v-icon>
             {{ t('edit') }}
           </RouterLink>
@@ -289,8 +289,10 @@ function onFile(files) {
     <template v-else-if="test">
       <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
 
-      <v-row>
-        <v-col cols="12" md="4">
+      <v-alert type="info" variant="tonal" class="mb-4">{{ t('listeningFourSectionsNote') }}</v-alert>
+
+      <div class="listening-builder">
+        <aside class="listening-builder__side">
           <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('sections') }}</h2></div>
               <v-list density="compact" color="#0f5c66">
                 <v-list-item
@@ -303,9 +305,9 @@ function onFile(files) {
                 />
               </v-list>
             </section>
-        </v-col>
+        </aside>
 
-        <v-col cols="12" md="8">
+        <div class="listening-builder__main">
           <template v-if="selectedSection">
             <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('sectionAudio') }}</h2></div>
                 <v-text-field v-model="sectionTitleDraft" :label="t('sectionTitle')" class="mb-2" />
@@ -398,8 +400,39 @@ function onFile(files) {
                 </section>
             </template>
           </template>
-        </v-col>
-      </v-row>
+        </div>
+      </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+.listening-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.listening-builder__side,
+.listening-builder__main {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.listening-builder audio {
+  max-width: 100%;
+}
+
+@media (min-width: 960px) {
+  .listening-builder {
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+  }
+
+  .listening-builder__side {
+    position: sticky;
+    top: 1rem;
+  }
+}
+</style>

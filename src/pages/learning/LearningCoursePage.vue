@@ -579,7 +579,7 @@ watch(() => route.params.slug, load)
 
 .learn-lesson__cta {
   flex-shrink: 0;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 0.9rem;
   border: 0;
   border-radius: 0.5rem;

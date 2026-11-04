@@ -25,6 +25,7 @@ const form = ref({
 })
 const imageUrl = ref('')
 const file = ref(null)
+const fileInput = ref(null)
 const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
@@ -116,6 +117,10 @@ async function save() {
   }
 }
 
+function onFileChange(event) {
+  file.value = event.target.files?.[0] || null
+}
+
 async function uploadImage() {
   if (!file.value || !isEdit.value) return
   saving.value = true
@@ -127,6 +132,7 @@ async function uploadImage() {
     const { data } = await http.post(`/admin/writing-tasks/${route.params.id}/image`, body, { skipErrorToast: true })
     imageUrl.value = data.data.image_url
     file.value = null
+    if (fileInput.value) fileInput.value.value = ''
   } catch (error) {
     const parsed = apiError(error)
     fieldErrors.value = parsed.errors || {}
@@ -152,83 +158,98 @@ async function removeImage() {
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="isEdit ? t('editWritingTask') : t('newWritingTask')">
+    <AdminPageHero :title="isEdit ? t('editWritingTask') : t('newWritingTask')" :lead="t('writingFormLead')">
       <template #actions>
-        <RouterLink :to="{ name: 'admin-writing-tasks' }" class="admin-ui__btn admin-ui__btn--ghost">
+        <RouterLink
+          :to="{ name: 'admin-writing-tasks' }"
+          class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm"
+        >
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToWritingTasks') }}
         </RouterLink>
-        <button type="button" class="admin-ui__btn admin-ui__btn--primary" :disabled="saving || loading" @click="save">
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          :disabled="saving || loading"
+          @click="save"
+        >
           <v-icon size="18">mdi-content-save</v-icon>
           {{ t('save') }}
         </button>
       </template>
     </AdminPageHero>
 
+    <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
+
     <div v-if="loading" class="admin-ui__panel admin-ui__loading">
       <v-progress-circular indeterminate color="#0f5c66" size="36" />
     </div>
     <template v-else>
-      <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-
       <section class="admin-ui__panel">
         <div class="admin-ui__panel-head">
-          <h2>{{ isEdit ? t('editWritingTask') : t('newWritingTask') }}</h2>
+          <div>
+            <h2>{{ isEdit ? t('editWritingTask') : t('newWritingTask') }}</h2>
+            <p>{{ t('writingFormLead') }}</p>
+          </div>
         </div>
-        <v-form @submit.prevent="save">
-          <v-text-field
-            v-model="form.title"
-            :label="t('title')"
-            required
-            :error-messages="fieldErrors.title || []"
-          />
+
+        <form class="writing-form" @submit.prevent="save">
+          <label class="admin-ui__field">
+            <span>{{ t('title') }}</span>
+            <input v-model="form.title" type="text" required>
+            <small v-if="fieldErrors.title" class="writing-form__error">{{ [].concat(fieldErrors.title).join(' ') }}</small>
+          </label>
+
           <div class="admin-ui__form-grid admin-ui__form-grid--2">
-            <v-select
-              v-model="form.task_type"
-              :items="taskTypes"
-              :label="t('writingTaskType')"
-              :error-messages="fieldErrors.task_type || []"
-            />
-            <v-select
-              v-model="form.exam_type"
-              :items="examTypes"
-              :label="t('examType')"
-              :disabled="form.task_type === 'academic_task_1' || form.task_type === 'general_task_1'"
-              :error-messages="fieldErrors.exam_type || []"
-            />
+            <label class="admin-ui__field">
+              <span>{{ t('writingTaskType') }}</span>
+              <select v-model="form.task_type">
+                <option v-for="item in taskTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
+              </select>
+              <small v-if="fieldErrors.task_type" class="writing-form__error">{{ [].concat(fieldErrors.task_type).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('examType') }}</span>
+              <select
+                v-model="form.exam_type"
+                :disabled="form.task_type === 'academic_task_1' || form.task_type === 'general_task_1'"
+              >
+                <option v-for="item in examTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
+              </select>
+              <small v-if="fieldErrors.exam_type" class="writing-form__error">{{ [].concat(fieldErrors.exam_type).join(' ') }}</small>
+            </label>
           </div>
-          <v-textarea
-            v-model="form.instructions"
-            :label="t('instructions')"
-            rows="3"
-            :error-messages="fieldErrors.instructions || []"
-          />
-          <v-textarea
-            v-model="form.prompt"
-            :label="t('writingPrompt')"
-            rows="5"
-            required
-            :error-messages="fieldErrors.prompt || []"
-          />
+
+          <label class="admin-ui__field">
+            <span>{{ t('instructions') }}</span>
+            <textarea v-model="form.instructions" rows="3" />
+            <small v-if="fieldErrors.instructions" class="writing-form__error">{{ [].concat(fieldErrors.instructions).join(' ') }}</small>
+          </label>
+
+          <label class="admin-ui__field">
+            <span>{{ t('writingPrompt') }}</span>
+            <textarea v-model="form.prompt" rows="6" required />
+            <small v-if="fieldErrors.prompt" class="writing-form__error">{{ [].concat(fieldErrors.prompt).join(' ') }}</small>
+          </label>
+
           <div class="admin-ui__form-grid admin-ui__form-grid--2">
-            <v-text-field
-              v-model.number="form.recommended_minutes"
-              type="number"
-              min="5"
-              max="120"
-              :label="t('recommendedMinutes')"
-              :error-messages="fieldErrors.recommended_minutes || []"
-            />
-            <v-text-field
-              v-model.number="form.min_words"
-              type="number"
-              min="50"
-              max="1000"
-              :label="t('minWords')"
-              :error-messages="fieldErrors.min_words || []"
-            />
+            <label class="admin-ui__field">
+              <span>{{ t('recommendedMinutes') }}</span>
+              <input v-model.number="form.recommended_minutes" type="number" min="5" max="120" required>
+              <small v-if="fieldErrors.recommended_minutes" class="writing-form__error">{{ [].concat(fieldErrors.recommended_minutes).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('minWords') }}</span>
+              <input v-model.number="form.min_words" type="number" min="50" max="1000" required>
+              <small v-if="fieldErrors.min_words" class="writing-form__error">{{ [].concat(fieldErrors.min_words).join(' ') }}</small>
+            </label>
           </div>
-          <v-switch v-model="form.is_published" :label="t('published')" color="#0f5c66" />
+
+          <label class="admin-ui__switch">
+            <input v-model="form.is_published" type="checkbox">
+            {{ t('published') }}
+          </label>
+
           <div class="admin-ui__form-actions">
             <button
               type="submit"
@@ -238,7 +259,7 @@ async function removeImage() {
               {{ t('save') }}
             </button>
           </div>
-        </v-form>
+        </form>
       </section>
 
       <section v-if="isEdit" class="admin-ui__panel">
@@ -248,33 +269,59 @@ async function removeImage() {
             <p>{{ t('writingImageHint') }}</p>
           </div>
         </div>
-        <v-img v-if="imageUrl" :src="imageUrl" max-height="240" class="mb-3" contain />
-        <v-file-input
-          v-model="file"
-          :label="t('uploadWritingImage')"
-          accept="image/png,image/jpeg,image/webp"
-          :error-messages="fieldErrors.image || []"
-        />
-        <div class="admin-ui__row-actions">
-          <button
-            type="button"
-            class="admin-ui__btn admin-ui__btn--soft"
-            :disabled="!file || saving"
-            @click="uploadImage"
-          >
-            {{ t('uploadWritingImage') }}
-          </button>
-          <button
-            v-if="imageUrl"
-            type="button"
-            class="admin-ui__btn admin-ui__btn--danger"
-            :disabled="saving"
-            @click="removeImage"
-          >
-            {{ t('removeWritingImage') }}
-          </button>
+        <div class="writing-form">
+          <img v-if="imageUrl" :src="imageUrl" :alt="form.title" class="writing-form__preview">
+          <label class="admin-ui__field">
+            <span>{{ t('uploadWritingImage') }}</span>
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              @change="onFileChange"
+            >
+            <small v-if="fieldErrors.image" class="writing-form__error">{{ [].concat(fieldErrors.image).join(' ') }}</small>
+          </label>
+          <div class="admin-ui__row-actions">
+            <button
+              type="button"
+              class="admin-ui__btn admin-ui__btn--soft"
+              :disabled="!file || saving"
+              @click="uploadImage"
+            >
+              {{ t('uploadWritingImage') }}
+            </button>
+            <button
+              v-if="imageUrl"
+              type="button"
+              class="admin-ui__btn admin-ui__btn--danger"
+              :disabled="saving"
+              @click="removeImage"
+            >
+              {{ t('removeWritingImage') }}
+            </button>
+          </div>
         </div>
       </section>
     </template>
   </div>
 </template>
+
+<style scoped>
+.writing-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.writing-form__preview {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 0.65rem;
+  object-fit: contain;
+  background: #f4f8f9;
+}
+
+.writing-form__error {
+  color: #b42318;
+}
+</style>

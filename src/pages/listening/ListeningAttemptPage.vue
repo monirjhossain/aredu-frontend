@@ -52,6 +52,21 @@ const timerLabel = computed(() => {
   return `${m}:${s}`
 })
 
+const allQuestions = computed(() => {
+  const rows = []
+  for (const section of sections.value) {
+    for (const group of section.groups || []) {
+      for (const question of group.questions || []) rows.push({ group, question })
+    }
+  }
+  return rows
+})
+const totalQuestions = computed(() => allQuestions.value.length)
+const answeredCount = computed(() =>
+  allQuestions.value.filter((row) => isAnswered(row.question.id, row.group.type)).length,
+)
+const timerUrgent = computed(() => !isSubmitted.value && secondsRemaining.value > 0 && secondsRemaining.value <= 300)
+
 onMounted(load)
 onBeforeUnmount(() => {
   stopTimers()
@@ -157,6 +172,13 @@ function usesOptions(type) {
   return ['multiple_choice', 'true_false_not_given', 'yes_no_not_given', 'matching_headings', 'matching_information'].includes(type)
 }
 
+function isAnswered(questionId, type) {
+  const answer = answers.value[questionId]
+  if (!answer) return false
+  if (usesOptions(type)) return Boolean(answer.question_option_id)
+  return Boolean(String(answer.answer_text || '').trim())
+}
+
 function setOption(questionId, optionId) {
   answers.value[questionId] = { ...(answers.value[questionId] || {}), question_option_id: optionId, answer_text: '' }
   dirty = true
@@ -232,94 +254,518 @@ function goRelative(delta) {
 </script>
 
 <template>
-  <div>
-    <v-progress-circular v-if="loading" indeterminate color="primary" />
-          <v-alert v-else-if="message && !payload" type="error" variant="tonal">{{ message }}</v-alert>
-          <template v-else-if="payload">
-            <div class="d-flex align-center flex-wrap ga-2 mb-4">
-              <div>
-                <h1 class="text-h6 mb-0">{{ payload.test.title }}</h1>
-                <div class="text-caption text-medium-emphasis">{{ t('listeningFourSectionsStudent') }}</div>
-              </div>
-              <v-spacer />
-              <v-chip v-if="!isSubmitted" color="primary" variant="tonal">{{ t('timeLeft') }}: {{ timerLabel }}</v-chip>
-              <v-chip v-if="saving" size="small" variant="text">{{ t('savingAnswers') }}</v-chip>
-              <v-btn v-if="!isSubmitted" color="primary" :loading="submitting" @click="submit(false)">{{ t('submitTest') }}</v-btn>
-            </div>
+  <div class="rmock-attempt">
+    <div v-if="loading" class="rmock-attempt__loader">
+      <v-progress-circular indeterminate color="#0f5c66" size="36" />
+    </div>
+    <v-alert v-else-if="message && !payload" type="error" variant="tonal">{{ message }}</v-alert>
 
-            <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-            <v-alert v-if="isSubmitted && payload.result" type="success" variant="tonal" class="mb-4">
-              {{ t('yourScore') }}: {{ payload.result.raw_score }}/{{ payload.result.max_score }}
-              <span v-if="payload.result.band_score != null"> · {{ t('bandScore') }}: {{ payload.result.band_score }}</span>
-              <span v-else> · {{ t('bandPending') }}</span>
-            </v-alert>
+    <template v-else-if="payload">
+      <header class="rmock-attempt__bar">
+        <div class="rmock-attempt__bar-main">
+          <router-link class="rmock-attempt__back" :to="{ name: 'listening-tests' }" :aria-label="t('backToListeningTestsPublic')">
+            ←
+          </router-link>
+          <div class="rmock-attempt__titles">
+            <h1>{{ payload.test.title }}</h1>
+            <p>
+              {{ answeredCount }}/{{ totalQuestions }} {{ t('answered') }}
+              <span v-if="saving"> · {{ t('savingAnswers') }}</span>
+            </p>
+          </div>
+        </div>
+        <div class="rmock-attempt__bar-actions">
+          <span
+            v-if="!isSubmitted"
+            class="rmock-attempt__timer"
+            :class="{ 'is-urgent': timerUrgent }"
+          >
+            {{ t('timeLeft') }} {{ timerLabel }}
+          </span>
+          <button
+            v-if="!isSubmitted"
+            type="button"
+            class="rmock-attempt__submit"
+            :disabled="submitting"
+            @click="submit(false)"
+          >
+            {{ t('submitTest') }}
+          </button>
+          <router-link
+            v-else
+            class="rmock-attempt__results"
+            :to="{ name: 'listening-results' }"
+          >
+            {{ t('listeningResults') }}
+          </router-link>
+        </div>
+      </header>
 
-            <v-tabs v-model="currentSectionId" class="mb-4">
-              <v-tab v-for="section in sections" :key="section.id" :value="section.id">{{ section.title }}</v-tab>
-            </v-tabs>
+      <v-alert v-if="message" type="error" variant="tonal">{{ message }}</v-alert>
 
-            <v-card class="mb-4" v-if="currentSection">
-              <v-card-title>{{ t('sectionAudio') }}</v-card-title>
-              <v-card-text>
-                <v-alert v-if="audioError" type="warning" variant="tonal">{{ audioError }}</v-alert>
-                <audio v-else-if="audioObjectUrl" :src="audioObjectUrl" controls class="w-100" />
-                <div v-else class="text-medium-emphasis">{{ t('loadingAudio') }}</div>
-              </v-card-text>
-            </v-card>
+      <div v-if="isSubmitted && payload.result" class="rmock-attempt__score">
+        <strong>{{ t('yourScore') }}: {{ payload.result.raw_score }}/{{ payload.result.max_score }}</strong>
+        <span v-if="payload.result.band_score != null"> · {{ t('bandScore') }}: {{ payload.result.band_score }}</span>
+        <span v-else> · {{ t('bandPending') }}</span>
+      </div>
 
-            <div class="mb-3 d-flex flex-wrap ga-1">
-              <v-btn
-                v-for="row in flatQuestions"
-                :key="row.question.id"
-                size="small"
-                :variant="row.question.id === current?.question.id ? 'flat' : 'tonal'"
-                :color="row.question.id === current?.question.id ? 'primary' : undefined"
-                @click="currentQuestionId = row.question.id"
+      <div class="rmock-attempt__tabs" role="tablist" :aria-label="t('listeningFourSectionsStudent')">
+        <button
+          v-for="section in sections"
+          :key="section.id"
+          type="button"
+          role="tab"
+          class="rmock-attempt__tab"
+          :class="{ 'is-active': section.id === currentSection?.id }"
+          :aria-selected="section.id === currentSection?.id"
+          @click="currentSectionId = section.id"
+        >
+          {{ section.title }}
+        </button>
+      </div>
+
+      <section v-if="currentSection" class="rmock-attempt__audio">
+        <h2>{{ t('sectionAudio') }}</h2>
+        <v-alert v-if="audioError" type="warning" variant="tonal">{{ audioError }}</v-alert>
+        <audio v-else-if="audioObjectUrl" :src="audioObjectUrl" controls class="rmock-attempt__audio-el" />
+        <div v-else class="rmock-attempt__hint">{{ t('loadingAudio') }}</div>
+      </section>
+
+      <div class="rmock-attempt__nav" role="navigation" :aria-label="t('questionNav')">
+        <button
+          v-for="row in flatQuestions"
+          :key="row.question.id"
+          type="button"
+          class="rmock-attempt__qbtn"
+          :class="{
+            'is-active': row.question.id === current?.question.id,
+            'is-done': isAnswered(row.question.id, row.group.type),
+          }"
+          @click="currentQuestionId = row.question.id"
+        >
+          {{ row.question.position }}
+        </button>
+      </div>
+
+      <div v-if="current" class="rmock-attempt__layout">
+        <section class="rmock-attempt__question">
+          <p class="rmock-attempt__type">{{ t(`questionTypes.${current.group.type}`) }}</p>
+          <h2>{{ current.question.position }}. {{ current.question.prompt }}</h2>
+          <p v-if="current.group.instructions" class="rmock-attempt__hint">
+            {{ current.group.instructions }}
+          </p>
+
+          <div v-if="usesOptions(current.group.type)" class="rmock-attempt__options">
+            <label
+              v-for="option in current.group.options"
+              :key="option.id"
+              class="rmock-attempt__option"
+              :class="{ 'is-selected': answers[current.question.id]?.question_option_id === option.id }"
+            >
+              <input
+                type="radio"
+                :name="`q-${current.question.id}`"
+                :value="option.id"
+                :checked="answers[current.question.id]?.question_option_id === option.id"
+                :disabled="isSubmitted"
+                @change="setOption(current.question.id, option.id)"
               >
-                {{ row.question.position }}
-              </v-btn>
-            </div>
+              <span class="rmock-attempt__option-label">{{ option.label || '•' }}</span>
+              <span>{{ option.content }}</span>
+            </label>
+          </div>
 
-            <v-card v-if="current">
-              <v-card-title>{{ current.question.position }}. {{ current.question.prompt }}</v-card-title>
-              <v-card-subtitle>{{ t(`questionTypes.${current.group.type}`) }}</v-card-subtitle>
-              <v-card-text>
-                <div v-if="current.group.instructions" class="text-body-2 mb-3">{{ current.group.instructions }}</div>
-                <v-radio-group
-                  v-if="usesOptions(current.group.type)"
-                  :model-value="answers[current.question.id]?.question_option_id"
-                  :disabled="isSubmitted"
-                  @update:model-value="(value) => setOption(current.question.id, value)"
-                >
-                  <v-radio
-                    v-for="option in current.group.options"
-                    :key="option.id"
-                    :label="`${option.label ? `${option.label}. ` : ''}${option.content}`"
-                    :value="option.id"
-                  />
-                </v-radio-group>
-                <v-text-field
-                  v-else
-                  :model-value="answers[current.question.id]?.answer_text"
-                  :label="t('yourAnswer')"
-                  :disabled="isSubmitted"
-                  @update:model-value="(value) => setText(current.question.id, value)"
-                />
-              </v-card-text>
-              <v-card-actions>
-                <v-btn variant="text" :disabled="!flatQuestions[0] || current.question.id === flatQuestions[0].id" @click="goRelative(-1)">
-                  {{ t('previous') }}
-                </v-btn>
-                <v-spacer />
-                <v-btn variant="text" :disabled="current.question.id === flatQuestions.at(-1)?.question.id" @click="goRelative(1)">
-                  {{ t('next') }}
-                </v-btn>
-              </v-card-actions>
-            </v-card>
+          <label v-else class="rmock-attempt__text">
+            <span>{{ t('yourAnswer') }}</span>
+            <input
+              type="text"
+              :value="answers[current.question.id]?.answer_text || ''"
+              :disabled="isSubmitted"
+              @input="setText(current.question.id, $event.target.value)"
+            >
+          </label>
 
-            <div class="mt-4">
-              <v-btn variant="text" :to="{ name: 'listening-results' }">{{ t('listeningResults') }}</v-btn>
-            </div>
-          </template>
+          <div v-if="isSubmitted && current.question.correct_option_id" class="rmock-attempt__review">
+            {{ t('correctOption') }}: #{{ current.question.correct_option_id }}
+          </div>
+          <div v-if="isSubmitted && current.question.accepted_answers?.length" class="rmock-attempt__review">
+            {{ t('acceptedAnswers') }}: {{ current.question.accepted_answers.join(' / ') }}
+          </div>
+
+          <div class="rmock-attempt__stepper">
+            <button
+              type="button"
+              class="rmock-attempt__step"
+              :disabled="!flatQuestions[0] || current.question.id === flatQuestions[0].id"
+              @click="goRelative(-1)"
+            >
+              {{ t('previous') }}
+            </button>
+            <button
+              type="button"
+              class="rmock-attempt__step rmock-attempt__step--next"
+              :disabled="current.question.id === flatQuestions.at(-1)?.question.id"
+              @click="goRelative(1)"
+            >
+              {{ t('next') }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.rmock-attempt {
+  display: grid;
+  gap: 0.85rem;
+  font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
+  color: #102a2e;
+}
+
+.rmock-attempt__loader {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+}
+
+.rmock-attempt__bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: #0f5c66;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(15, 92, 102, 0.25);
+}
+
+.rmock-attempt__bar-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.rmock-attempt__back {
+  display: inline-grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.1rem;
+  text-decoration: none;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.rmock-attempt__titles {
+  min-width: 0;
+}
+
+.rmock-attempt__titles h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rmock-attempt__titles p {
+  margin: 0.15rem 0 0;
+  opacity: 0.82;
+  font-size: 0.78rem;
+}
+
+.rmock-attempt__bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rmock-attempt__timer {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.84rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rmock-attempt__timer.is-urgent {
+  background: #f5c518;
+  color: #1a1400;
+}
+
+.rmock-attempt__submit,
+.rmock-attempt__results {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0 0.95rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: #f5c518;
+  color: #1a1400;
+  text-decoration: none;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rmock-attempt__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rmock-attempt__score {
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  background: #eef8f6;
+  border: 1px solid rgba(15, 92, 102, 0.18);
+  font-size: 0.92rem;
+}
+
+.rmock-attempt__tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rmock-attempt__tab {
+  flex: 1 0 auto;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.65rem;
+  background: #fff;
+  color: #5b7378;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rmock-attempt__tab.is-active {
+  background: #0f5c66;
+  border-color: #0f5c66;
+  color: #fff;
+}
+
+.rmock-attempt__audio {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.95rem;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
+}
+
+.rmock-attempt__audio h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.rmock-attempt__audio-el {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.rmock-attempt__nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rmock-attempt__qbtn {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #5b7378;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rmock-attempt__qbtn.is-done {
+  background: #e7f4f5;
+  border-color: #9ed0d4;
+  color: #0f5c66;
+}
+
+.rmock-attempt__qbtn.is-active {
+  background: #0f5c66;
+  border-color: #0f5c66;
+  color: #fff;
+}
+
+.rmock-attempt__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+}
+
+@media (min-width: 960px) {
+  .rmock-attempt__layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 52rem;
+  }
+
+  .rmock-attempt__tab {
+    flex: 0 0 auto;
+  }
+}
+
+.rmock-attempt__question {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.95rem;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
+}
+
+.rmock-attempt__question h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.rmock-attempt__type {
+  margin: 0 0 0.35rem;
+  color: #0f5c66;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rmock-attempt__hint {
+  margin: 0 0 0.85rem;
+  color: #5b7378;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.rmock-attempt__options {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.rmock-attempt__option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.55rem;
+  align-items: start;
+  min-height: 44px;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.7rem;
+  background: #fbfcfd;
+  cursor: pointer;
+}
+
+.rmock-attempt__option.is-selected {
+  border-color: #0f5c66;
+  background: #eef8f6;
+}
+
+.rmock-attempt__option input {
+  margin-top: 0.2rem;
+}
+
+.rmock-attempt__option-label {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #e7eef0;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.rmock-attempt__text {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.rmock-attempt__text input {
+  min-height: 46px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.65rem;
+  font: inherit;
+  font-weight: 500;
+}
+
+.rmock-attempt__review {
+  margin-top: 0.75rem;
+  color: #0f5c66;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.rmock-attempt__stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.rmock-attempt__step {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid #d9e6e8;
+  border-radius: 0.6rem;
+  background: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.rmock-attempt__step--next {
+  margin-left: auto;
+  background: #0f5c66;
+  border-color: #0f5c66;
+  color: #fff;
+}
+
+.rmock-attempt__step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>

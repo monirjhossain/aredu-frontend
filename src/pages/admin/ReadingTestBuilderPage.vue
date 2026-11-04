@@ -271,20 +271,33 @@ function selectGroup(group) {
   <div class="admin-ui">
     <AdminPageHero
       :title="test?.title || t('manageReadingTests')"
-      :lead="test ? `${test.exam_type === 'general' ? t('general') : t('academic')} · ${t('minutesCount', { count: Math.round(test.duration_seconds / 60) })}` : ''"
+      :lead="test
+        ? `${test.exam_type === 'general' ? t('general') : t('academic')} · ${t('minutesCount', { count: Math.round(test.duration_seconds / 60) })}`
+        : t('readingBuilderLead')"
     >
       <template #actions>
-        <RouterLink :to="{ name: 'admin-reading-tests' }" class="admin-ui__btn admin-ui__btn--ghost">
+        <RouterLink
+          :to="{ name: 'admin-reading-tests' }"
+          class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm"
+        >
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToReadingTests') }}
         </RouterLink>
         <template v-if="test">
-          <RouterLink :to="{ name: 'admin-reading-test-edit', params: { id: test.id } }" class="admin-ui__btn admin-ui__btn--primary">
+          <RouterLink
+            :to="{ name: 'admin-reading-test-edit', params: { id: test.id } }"
+            class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          >
             <v-icon size="18">mdi-pencil</v-icon>
             {{ t('edit') }}
           </RouterLink>
           <label class="admin-ui__switch" style="color: #fff">
-            <input type="checkbox" :checked="test.is_published" :disabled="busy" @change="togglePublished($event.target.checked)">
+            <input
+              type="checkbox"
+              :checked="test.is_published"
+              :disabled="busy"
+              @change="togglePublished($event.target.checked)"
+            >
             {{ t('published') }}
           </label>
         </template>
@@ -297,119 +310,344 @@ function selectGroup(group) {
     <v-alert v-else-if="message && !test" type="error" variant="tonal">{{ message }}</v-alert>
     <template v-else-if="test">
       <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-      <v-row>
-        <v-col cols="12" md="4">
-          <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('sections') }}</h2></div>
-              <v-list density="compact" color="#0f5c66">
-                <v-list-item v-for="section in test.sections" :key="section.id" :active="section.id === selectedSectionId" :title="section.title" @click="selectSection(section)">
-                  <template #append>
-                    <v-btn icon="mdi-delete" size="x-small" variant="text" :disabled="busy" @click.stop="removeSection(section)" />
-                  </template>
-                </v-list-item>
-              </v-list>
-              <v-text-field v-model="sectionTitle" :label="t('sectionTitle')" density="comfortable" hide-details class="mt-2" />
-              <v-btn class="mt-2" color="primary" variant="tonal" :loading="busy" @click="addSection">{{ t('addSection') }}</v-btn>
-            </section>
-        </v-col>
 
-        <v-col cols="12" md="8">
+      <div class="reading-builder">
+        <section class="admin-ui__panel reading-builder__sidebar">
+          <div class="admin-ui__panel-head">
+            <h2>{{ t('sections') }}</h2>
+          </div>
+          <div class="admin-ui__list">
+            <div
+              v-for="section in test.sections"
+              :key="section.id"
+              class="admin-ui__row reading-builder__section"
+              :class="{ 'is-active': section.id === selectedSectionId }"
+              role="button"
+              tabindex="0"
+              @click="selectSection(section)"
+              @keydown.enter.prevent="selectSection(section)"
+            >
+              <div class="admin-ui__row-main">
+                <h3 class="admin-ui__row-title">{{ section.title }}</h3>
+                <p class="admin-ui__row-meta">
+                  {{ t('passages') }} {{ section.passages?.length || 0 }}
+                  · {{ t('questionGroups') }} {{ section.groups?.length || 0 }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--danger"
+                :disabled="busy"
+                @click.stop="removeSection(section)"
+              >
+                {{ t('delete') }}
+              </button>
+            </div>
+          </div>
+          <div class="reading-builder__add">
+            <label class="admin-ui__field">
+              <span>{{ t('sectionTitle') }}</span>
+              <input v-model="sectionTitle" type="text">
+            </label>
+            <button
+              type="button"
+              class="admin-ui__btn admin-ui__btn--solid admin-ui__btn--block"
+              :disabled="busy"
+              @click="addSection"
+            >
+              {{ t('addSection') }}
+            </button>
+          </div>
+        </section>
+
+        <div class="reading-builder__main">
           <v-alert v-if="!selectedSection" type="info" variant="tonal">{{ t('selectSectionFirst') }}</v-alert>
           <template v-else>
-            <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('passages') }}</h2></div>
-                <div v-for="passage in selectedSection.passages" :key="passage.id" class="mb-3">
-                  <div class="d-flex align-center">
-                    <strong>{{ passage.title || `${t('passage')} #${passage.position}` }}</strong>
-                    <v-spacer />
-                    <v-btn size="x-small" variant="text" color="error" :disabled="busy" @click="removePassage(passage)">{{ t('delete') }}</v-btn>
-                  </div>
-                  <div class="text-body-2 text-medium-emphasis passage-preview">{{ passage.body }}</div>
+            <section class="admin-ui__panel">
+              <div class="admin-ui__panel-head"><h2>{{ t('passages') }}</h2></div>
+              <div v-for="passage in selectedSection.passages" :key="passage.id" class="reading-builder__item">
+                <div class="reading-builder__item-head">
+                  <strong>{{ passage.title || `${t('passage')} #${passage.position}` }}</strong>
+                  <button
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--danger"
+                    :disabled="busy"
+                    @click="removePassage(passage)"
+                  >
+                    {{ t('delete') }}
+                  </button>
                 </div>
-                <v-text-field v-model="passageForm.title" :label="t('passageTitle')" density="comfortable" class="mb-2" />
-                <v-textarea v-model="passageForm.body" :label="t('passageBody')" rows="4" class="mb-2" />
-                <v-btn color="primary" variant="tonal" :loading="busy" @click="addPassage">{{ t('addPassage') }}</v-btn>
-              </section>
+                <div class="passage-preview">{{ passage.body }}</div>
+              </div>
+              <div class="reading-builder__add">
+                <label class="admin-ui__field">
+                  <span>{{ t('passageTitle') }}</span>
+                  <input v-model="passageForm.title" type="text">
+                </label>
+                <label class="admin-ui__field">
+                  <span>{{ t('passageBody') }}</span>
+                  <textarea v-model="passageForm.body" rows="4" />
+                </label>
+                <button
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--solid"
+                  :disabled="busy"
+                  @click="addPassage"
+                >
+                  {{ t('addPassage') }}
+                </button>
+              </div>
+            </section>
 
-            <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('questionGroups') }}</h2></div>
-                <v-chip-group v-model="selectedGroupId" column>
-                  <v-chip v-for="group in selectedSection.groups" :key="group.id" :value="group.id" filter @click="selectGroup(group)">
-                    {{ t(`questionTypes.${group.type}`) }}
-                  </v-chip>
-                </v-chip-group>
-                <v-row dense class="mt-2">
-                  <v-col cols="12" md="5">
-                    <v-select v-model="groupType" :items="groupTypes" :label="t('questionType')" density="comfortable" />
-                  </v-col>
-                  <v-col cols="12" md="5">
-                    <v-select v-model="groupPassageId" :items="passageItems" :label="t('linkedPassage')" clearable density="comfortable" />
-                  </v-col>
-                  <v-col cols="12" md="2" class="d-flex align-center">
-                    <v-btn color="primary" variant="tonal" block :loading="busy" @click="addGroup">{{ t('addGroup') }}</v-btn>
-                  </v-col>
-                </v-row>
-                <v-btn v-if="selectedGroup" class="mt-2" size="small" color="error" variant="text" :disabled="busy" @click="removeGroup(selectedGroup)">
-                  {{ t('deleteGroup') }}
-                </v-btn>
-              </section>
+            <section class="admin-ui__panel">
+              <div class="admin-ui__panel-head"><h2>{{ t('questionGroups') }}</h2></div>
+              <div class="reading-builder__chips">
+                <button
+                  v-for="group in selectedSection.groups"
+                  :key="group.id"
+                  type="button"
+                  class="reading-builder__chip"
+                  :class="{ 'is-active': group.id === selectedGroupId }"
+                  @click="selectGroup(group)"
+                >
+                  {{ t(`questionTypes.${group.type}`) }}
+                </button>
+              </div>
+              <div class="reading-builder__group-form">
+                <label class="admin-ui__field">
+                  <span>{{ t('questionType') }}</span>
+                  <select v-model="groupType">
+                    <option v-for="item in groupTypes" :key="item.value" :value="item.value">{{ item.title }}</option>
+                  </select>
+                </label>
+                <label class="admin-ui__field">
+                  <span>{{ t('linkedPassage') }}</span>
+                  <select v-model="groupPassageId">
+                    <option :value="null">—</option>
+                    <option v-for="item in passageItems" :key="item.value" :value="item.value">{{ item.title }}</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--solid"
+                  :disabled="busy"
+                  @click="addGroup"
+                >
+                  {{ t('addGroup') }}
+                </button>
+              </div>
+              <button
+                v-if="selectedGroup"
+                type="button"
+                class="admin-ui__btn admin-ui__btn--danger mt-2"
+                :disabled="busy"
+                @click="removeGroup(selectedGroup)"
+              >
+                {{ t('deleteGroup') }}
+              </button>
+            </section>
 
             <template v-if="selectedGroup">
-              <section v-if="usesOptions" class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('options') }}</h2></div>
-                  <v-list density="compact" color="#0f5c66">
-                    <v-list-item v-for="option in selectedGroup.options" :key="option.id" :title="`${option.label ? `${option.label}. ` : ''}${option.content}`">
-                      <template #append>
-                        <v-btn icon="mdi-delete" size="x-small" variant="text" :disabled="busy" @click="removeOption(option)" />
-                      </template>
-                    </v-list-item>
-                  </v-list>
-                  <v-row dense>
-                    <v-col cols="12" sm="3"><v-text-field v-model="optionForm.label" :label="t('optionLabel')" density="comfortable" /></v-col>
-                    <v-col cols="12" sm="7"><v-text-field v-model="optionForm.content" :label="t('optionContent')" density="comfortable" /></v-col>
-                    <v-col cols="12" sm="2" class="d-flex align-center">
-                      <v-btn color="primary" variant="tonal" block :loading="busy" @click="addOption">{{ t('add') }}</v-btn>
-                    </v-col>
-                  </v-row>
-                </section>
-
-              <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('questions') }}</h2></div>
-                  <div v-for="question in selectedGroup.questions" :key="question.id" class="mb-3">
-                    <div class="d-flex align-center">
-                      <div>
-                        <strong>{{ question.position }}. {{ question.prompt }}</strong>
-                        <div class="text-caption text-medium-emphasis">
-                          {{ t('marks') }}: {{ question.marks }}
-                          <span v-if="question.correct_option_id"> · {{ t('correctOption') }} #{{ question.correct_option_id }}</span>
-                          <span v-if="question.accepted_answers?.length"> · {{ question.accepted_answers.map((a) => a.answer_text).join(' / ') }}</span>
-                        </div>
-                      </div>
-                      <v-spacer />
-                      <v-btn size="x-small" variant="text" color="error" :disabled="busy" @click="removeQuestion(question)">{{ t('delete') }}</v-btn>
+              <section v-if="usesOptions" class="admin-ui__panel">
+                <div class="admin-ui__panel-head"><h2>{{ t('options') }}</h2></div>
+                <div class="admin-ui__list">
+                  <div v-for="option in selectedGroup.options" :key="option.id" class="admin-ui__row">
+                    <div class="admin-ui__row-main">
+                      <h3 class="admin-ui__row-title">
+                        {{ option.label ? `${option.label}. ` : '' }}{{ option.content }}
+                      </h3>
                     </div>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--danger"
+                      :disabled="busy"
+                      @click="removeOption(option)"
+                    >
+                      {{ t('delete') }}
+                    </button>
                   </div>
-                  <v-textarea v-model="questionForm.prompt" :label="t('questionPrompt')" rows="2" class="mb-2" />
-                  <v-text-field v-model.number="questionForm.marks" type="number" min="0.25" step="0.25" :label="t('marks')" class="mb-2" />
-                  <v-select v-if="usesOptions" v-model="questionForm.correct_option_id" :items="optionItems" :label="t('correctOption')" clearable class="mb-2" />
-                  <v-textarea
-                    v-if="usesAcceptedAnswers"
-                    v-model="questionForm.accepted_answers"
-                    :label="t('acceptedAnswers')"
-                    :hint="t('acceptedAnswersHint')"
-                    persistent-hint
-                    rows="3"
-                    class="mb-2"
-                  />
-                  <v-btn color="primary" :loading="busy" @click="addQuestion">{{ t('addQuestion') }}</v-btn>
-                </section>
+                </div>
+                <div class="reading-builder__option-form">
+                  <label class="admin-ui__field">
+                    <span>{{ t('optionLabel') }}</span>
+                    <input v-model="optionForm.label" type="text">
+                  </label>
+                  <label class="admin-ui__field reading-builder__grow">
+                    <span>{{ t('optionContent') }}</span>
+                    <input v-model="optionForm.content" type="text">
+                  </label>
+                  <button
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--solid"
+                    :disabled="busy"
+                    @click="addOption"
+                  >
+                    {{ t('add') }}
+                  </button>
+                </div>
+              </section>
+
+              <section class="admin-ui__panel">
+                <div class="admin-ui__panel-head"><h2>{{ t('questions') }}</h2></div>
+                <div v-for="question in selectedGroup.questions" :key="question.id" class="reading-builder__item">
+                  <div class="reading-builder__item-head">
+                    <div>
+                      <strong>{{ question.position }}. {{ question.prompt }}</strong>
+                      <p class="admin-ui__row-meta">
+                        {{ t('marks') }}: {{ question.marks }}
+                        <span v-if="question.correct_option_id"> · {{ t('correctOption') }} #{{ question.correct_option_id }}</span>
+                        <span v-if="question.accepted_answers?.length"> · {{ question.accepted_answers.map((a) => a.answer_text).join(' / ') }}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--danger"
+                      :disabled="busy"
+                      @click="removeQuestion(question)"
+                    >
+                      {{ t('delete') }}
+                    </button>
+                  </div>
+                </div>
+                <div class="reading-builder__add">
+                  <label class="admin-ui__field">
+                    <span>{{ t('questionPrompt') }}</span>
+                    <textarea v-model="questionForm.prompt" rows="2" />
+                  </label>
+                  <label class="admin-ui__field">
+                    <span>{{ t('marks') }}</span>
+                    <input v-model.number="questionForm.marks" type="number" min="0.25" step="0.25">
+                  </label>
+                  <label v-if="usesOptions" class="admin-ui__field">
+                    <span>{{ t('correctOption') }}</span>
+                    <select v-model="questionForm.correct_option_id">
+                      <option :value="null">—</option>
+                      <option v-for="item in optionItems" :key="item.value" :value="item.value">{{ item.title }}</option>
+                    </select>
+                  </label>
+                  <label v-if="usesAcceptedAnswers" class="admin-ui__field">
+                    <span>{{ t('acceptedAnswers') }}</span>
+                    <textarea v-model="questionForm.accepted_answers" rows="3" />
+                    <small>{{ t('acceptedAnswersHint') }}</small>
+                  </label>
+                  <button
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--solid"
+                    :disabled="busy"
+                    @click="addQuestion"
+                  >
+                    {{ t('addQuestion') }}
+                  </button>
+                </div>
+              </section>
             </template>
           </template>
-        </v-col>
-      </v-row>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <style scoped>
+.reading-builder {
+  display: grid;
+  gap: 1rem;
+}
+
+.reading-builder__main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.reading-builder__section {
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.reading-builder__section.is-active {
+  border-color: #0f5c66;
+  background: rgba(15, 92, 102, 0.06);
+}
+
+.reading-builder__add,
+.reading-builder__group-form,
+.reading-builder__option-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.reading-builder__item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.reading-builder__item:last-of-type {
+  border-bottom: 0;
+}
+
+.reading-builder__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.reading-builder__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.reading-builder__chip {
+  min-height: 2.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  background: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.reading-builder__chip.is-active {
+  border-color: #0f5c66;
+  background: #0f5c66;
+  color: #fff;
+}
+
 .passage-preview {
   white-space: pre-wrap;
   max-height: 120px;
   overflow: auto;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #4a6064;
+}
+
+@media (min-width: 960px) {
+  .reading-builder {
+    grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .reading-builder__group-form {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+
+  .reading-builder__option-form {
+    grid-template-columns: 6rem minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .reading-builder__grow {
+    min-width: 0;
+  }
 }
 </style>

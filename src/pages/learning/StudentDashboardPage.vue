@@ -72,6 +72,17 @@ const summaryCards = computed(() => [
   },
 ])
 
+const quickLinks = computed(() => [
+  { to: { name: 'my-courses' }, label: t('myCourses'), icon: 'mdi-bookshelf' },
+  { to: { name: 'orders' }, label: t('myOrders'), icon: 'mdi-receipt-text' },
+  { to: { name: 'reading-tests' }, label: t('readingTests'), icon: 'mdi-book-open-blank-variant' },
+  { to: { name: 'listening-tests' }, label: t('listeningTests'), icon: 'mdi-headphones' },
+  { to: { name: 'writing-tasks' }, label: t('writingTasks'), icon: 'mdi-pencil-outline' },
+  { to: { name: 'speaking-tasks' }, label: t('speakingTasks'), icon: 'mdi-microphone-outline' },
+  { to: { name: 'notifications' }, label: t('notifications'), icon: 'mdi-bell-outline' },
+  { to: { name: 'account' }, label: t('account'), icon: 'mdi-account' },
+])
+
 onMounted(async () => {
   try {
     const { data } = await http.get('/student/dashboard', { skipErrorToast: true })
@@ -114,15 +125,32 @@ function notificationText(item) {
   <div class="student-dash">
     <header class="student-dash__hero">
       <div>
+        <p class="student-dash__eyebrow">{{ t('studentDashboard') }}</p>
         <h1>{{ t('helloName', { name: firstName }) }}</h1>
         <p>{{ t('studentWelcomeBack') }}</p>
       </div>
+      <router-link class="student-dash__hero-link" :to="{ name: 'my-courses' }">
+        {{ t('myCourses') }}
+        <span aria-hidden="true">→</span>
+      </router-link>
     </header>
 
     <v-progress-circular v-if="loading" class="student-dash__loader" indeterminate color="#0f5c66" />
     <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
 
     <template v-else-if="dashboard">
+      <section class="student-dash__shortcuts" aria-label="Quick links">
+        <router-link
+          v-for="link in quickLinks"
+          :key="link.label"
+          class="student-dash__shortcut"
+          :to="link.to"
+        >
+          <v-icon size="18">{{ link.icon }}</v-icon>
+          <span>{{ link.label }}</span>
+        </router-link>
+      </section>
+
       <section class="student-dash__top">
         <div class="student-dash__stats">
           <article
@@ -169,8 +197,16 @@ function notificationText(item) {
           </div>
         </div>
 
-        <div v-if="filteredCourses.length === 0" class="student-dash__empty">
-          {{ t('noPurchasedCourses') }}
+        <div v-if="enrolledCourses.length === 0" class="student-dash__empty">
+          <strong>{{ t('noPurchasedCourses') }}</strong>
+          <p>{{ t('myCoursesEmptyLead') }}</p>
+          <router-link class="student-dash__empty-link" :to="{ name: 'courses' }">
+            {{ t('browseCourses') }}
+            <span aria-hidden="true">→</span>
+          </router-link>
+        </div>
+        <div v-else-if="filteredCourses.length === 0" class="student-dash__empty">
+          <p>{{ t('noCoursesInTab') }}</p>
         </div>
         <div v-else class="student-dash__course-grid">
           <article
@@ -236,7 +272,12 @@ function notificationText(item) {
         </article>
 
         <article class="student-panel">
-          <h2>{{ t('recentMockResults') }}</h2>
+          <div class="student-panel__head">
+            <h2>{{ t('recentMockResults') }}</h2>
+            <router-link class="student-panel__all" :to="{ name: 'reading-results' }">
+              {{ t('viewAll') }}
+            </router-link>
+          </div>
           <p v-if="dashboard.recent_mock_results.length === 0" class="student-panel__empty">{{ t('noMockResults') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="row in dashboard.recent_mock_results" :key="row.attempt_id">
@@ -253,7 +294,12 @@ function notificationText(item) {
         </article>
 
         <article class="student-panel">
-          <h2>{{ t('pendingWriting') }} ({{ dashboard.pending_writing.total }})</h2>
+          <div class="student-panel__head">
+            <h2>{{ t('pendingWriting') }} ({{ dashboard.pending_writing.total }})</h2>
+            <router-link class="student-panel__all" :to="{ name: 'writing-tasks' }">
+              {{ t('viewAll') }}
+            </router-link>
+          </div>
           <p v-if="dashboard.pending_writing.items.length === 0" class="student-panel__empty">{{ t('noPendingWriting') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="item in dashboard.pending_writing.items" :key="item.id">
@@ -266,7 +312,12 @@ function notificationText(item) {
         </article>
 
         <article class="student-panel">
-          <h2>{{ t('pendingSpeaking') }} ({{ dashboard.pending_speaking.total }})</h2>
+          <div class="student-panel__head">
+            <h2>{{ t('pendingSpeaking') }} ({{ dashboard.pending_speaking.total }})</h2>
+            <router-link class="student-panel__all" :to="{ name: 'speaking-tasks' }">
+              {{ t('viewAll') }}
+            </router-link>
+          </div>
           <p v-if="dashboard.pending_speaking.items.length === 0" class="student-panel__empty">{{ t('noPendingSpeaking') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="item in dashboard.pending_speaking.items" :key="item.id">
@@ -279,7 +330,12 @@ function notificationText(item) {
         </article>
 
         <article class="student-panel student-panel--wide">
-          <h2>{{ t('notifications') }}</h2>
+          <div class="student-panel__head">
+            <h2>{{ t('notifications') }}</h2>
+            <router-link class="student-panel__all" :to="{ name: 'notifications' }">
+              {{ t('viewAll') }}
+            </router-link>
+          </div>
           <p v-if="dashboard.notifications.length === 0" class="student-panel__empty">{{ t('noNotifications') }}</p>
           <ul v-else class="student-panel__list">
             <li v-for="item in dashboard.notifications" :key="item.id">
@@ -308,6 +364,35 @@ function notificationText(item) {
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
 }
 
+.student-dash__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.2rem 1.25rem;
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
+    linear-gradient(135deg, #0b3d36 0%, #0f5c66 55%, #0a2a3a 100%);
+  color: #fff;
+}
+
+@media (min-width: 720px) {
+  .student-dash__hero {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+.student-dash__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
 .student-dash__hero h1 {
   margin: 0;
   font-size: clamp(1.35rem, 2.6vw, 1.8rem);
@@ -316,8 +401,57 @@ function notificationText(item) {
 }
 
 .student-dash__hero p {
-  margin: 0.3rem 0 0;
-  color: var(--muted);
+  margin: 0.35rem 0 0;
+  max-width: 42ch;
+  opacity: 0.9;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.student-dash__hero-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 0.65rem;
+  background: #f5c518;
+  color: #1a1400;
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.student-dash__shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+@media (min-width: 640px) {
+  .student-dash__shortcuts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.student-dash__shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.student-dash__shortcut :deep(.v-icon) {
+  color: #0f5c66;
 }
 
 .student-dash__loader {
@@ -456,6 +590,25 @@ function notificationText(item) {
   font-weight: 800;
 }
 
+.student-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.85rem;
+}
+
+.student-panel__all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.35rem;
+  color: #0f5c66;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
 .student-dash__tabs {
   display: flex;
   flex-wrap: wrap;
@@ -463,7 +616,7 @@ function notificationText(item) {
 }
 
 .student-dash__tab {
-  min-height: 2.2rem;
+  min-height: 44px;
   padding: 0 0.85rem;
   border: 0;
   border-radius: 999px;
@@ -480,11 +633,39 @@ function notificationText(item) {
   color: #fff;
 }
 
-.student-dash__empty,
+.student-dash__empty {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+  padding: 0.35rem 0 0.15rem;
+}
+
+.student-dash__empty strong {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.student-dash__empty p,
 .student-panel__empty {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.student-dash__empty-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  margin-top: 0.15rem;
+  border-radius: 0.55rem;
+  background: #0b1b34;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 800;
 }
 
 .student-dash__course-grid {

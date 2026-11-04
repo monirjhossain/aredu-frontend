@@ -27,11 +27,9 @@ const roleLabel = computed(() => {
   return slug || ''
 })
 
-watch(mdAndUp, (desktop) => {
-  drawer.value = desktop
-}, { immediate: true })
-
 const isLanding = computed(() => !!route.meta.fullBleed)
+const isStudentShell = computed(() => auth.isAuthenticated && auth.isStudent && !auth.isStaff)
+const useTopChrome = computed(() => isLanding.value || isStudentShell.value)
 const landingMenuOpen = ref(false)
 const redirectQuery = computed(() => (
   typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
@@ -39,15 +37,37 @@ const redirectQuery = computed(() => (
     : undefined
 ))
 
+const studentLinks = computed(() => [
+  { name: 'student-dashboard', label: t('studentDashboard') },
+  { name: 'my-courses', label: t('myCourses') },
+  { name: 'orders', label: t('myOrders') },
+  { name: 'reading-tests', label: t('readingTests') },
+  { name: 'listening-tests', label: t('listeningTests') },
+  { name: 'writing-tasks', label: t('writingTasks') },
+  { name: 'speaking-tasks', label: t('speakingTasks') },
+  { name: 'notifications', label: t('notifications') },
+  { name: 'account', label: t('account') },
+])
+
+watch(mdAndUp, (desktop) => {
+  // Only staff/admin keep a permanent desktop drawer.
+  drawer.value = desktop && !isStudentShell.value
+}, { immediate: true })
+
 watch(() => route.fullPath, () => {
   landingMenuOpen.value = false
-  if (!mdAndUp.value) {
+  if (!mdAndUp.value || isStudentShell.value) {
     drawer.value = false
   }
 })
 
+watch(isStudentShell, (student) => {
+  if (student) drawer.value = false
+  else if (mdAndUp.value) drawer.value = true
+})
+
 function closeIfMobile() {
-  if (!mdAndUp.value) {
+  if (!mdAndUp.value || isStudentShell.value) {
     drawer.value = false
   }
 }
@@ -62,10 +82,23 @@ async function logout() {
 function navActive(name) {
   return route.name === name
 }
+
+function studentNavActive(name) {
+  if (route.name === name) return true
+  const aliases = {
+    'reading-tests': ['reading-test-intro', 'reading-attempt', 'reading-results'],
+    'listening-tests': ['listening-test-intro', 'listening-attempt', 'listening-results'],
+    'writing-tasks': ['writing-editor', 'writing-submissions'],
+    'speaking-tasks': ['speaking-task-detail', 'speaking-recordings'],
+    orders: ['order-detail'],
+    'my-courses': ['learning-course', 'lesson-player'],
+  }
+  return (aliases[name] || []).includes(route.name)
+}
 </script>
 
 <template>
-  <v-app :class="{ 'landing-shell': isLanding }">
+  <v-app :class="{ 'landing-shell': useTopChrome, 'student-shell': isStudentShell }">
     <v-progress-linear
       v-if="ui.loading"
       class="app-loading"
@@ -73,7 +106,7 @@ function navActive(name) {
       indeterminate
     />
 
-    <header v-if="isLanding" class="site-nav">
+    <header v-if="useTopChrome" class="site-nav">
       <div class="site-nav__inner">
         <router-link class="site-nav__brand" :to="{ name: 'home' }" :aria-label="t('appName')">
           <img
@@ -110,7 +143,7 @@ function navActive(name) {
             class="site-nav__link"
             active-class=""
             exact-active-class=""
-            :class="{ 'is-active': navActive('student-dashboard') }"
+            :class="{ 'is-active': navActive('student-dashboard') || studentNavActive('my-courses') }"
             :to="{ name: 'student-dashboard' }"
           >
             {{ t('studentDashboard') }}
@@ -206,13 +239,16 @@ function navActive(name) {
         >
           {{ t('adminDashboard') }}
         </router-link>
-        <router-link
-          v-else-if="auth.isAuthenticated && auth.isStudent"
-          :to="{ name: 'student-dashboard' }"
-          @click="landingMenuOpen = false"
-        >
-          {{ t('studentDashboard') }}
-        </router-link>
+        <template v-if="auth.isAuthenticated && auth.isStudent">
+          <router-link
+            v-for="link in studentLinks"
+            :key="`m-${link.name}`"
+            :to="{ name: link.name }"
+            @click="landingMenuOpen = false"
+          >
+            {{ link.label }}
+          </router-link>
+        </template>
         <router-link
           v-if="!auth.isAuthenticated && route.name !== 'login'"
           :to="{ name: 'login', query: redirectQuery }"
@@ -229,6 +265,26 @@ function navActive(name) {
         </router-link>
         <button v-if="auth.isAuthenticated" type="button" @click="logout">{{ t('logout') }}</button>
       </div>
+
+      <nav
+        v-if="isStudentShell && !isLanding"
+        class="student-subnav"
+        :aria-label="t('studentDashboard')"
+      >
+        <div class="student-subnav__inner">
+          <router-link
+            v-for="link in studentLinks"
+            :key="link.name"
+            class="student-subnav__link"
+            active-class=""
+            exact-active-class=""
+            :class="{ 'is-active': studentNavActive(link.name) }"
+            :to="{ name: link.name }"
+          >
+            {{ link.label }}
+          </router-link>
+        </div>
+      </nav>
     </header>
 
     <v-app-bar
@@ -305,7 +361,7 @@ function navActive(name) {
     </v-app-bar>
 
     <v-navigation-drawer
-      v-if="!isLanding"
+      v-if="!useTopChrome"
       v-model="drawer"
       :permanent="mdAndUp"
       :temporary="!mdAndUp"
@@ -321,26 +377,6 @@ function navActive(name) {
       <v-list nav @click="closeIfMobile">
         <template v-if="!auth.isAuthenticated || auth.isStudent">
           <v-list-item :title="t('courses')" to="/courses" prepend-icon="mdi-school" />
-        </template>
-
-        <template v-if="auth.isStudent">
-          <v-list-item
-            :title="t('studentDashboard')"
-            to="/dashboard"
-            prepend-icon="mdi-view-dashboard-outline"
-          />
-          <v-list-item :title="t('notifications')" to="/notifications" prepend-icon="mdi-bell-outline" />
-          <v-list-item :title="t('myCourses')" to="/my-courses" prepend-icon="mdi-bookshelf" />
-          <v-list-item :title="t('myOrders')" to="/orders" prepend-icon="mdi-receipt-text" />
-          <v-list-item :title="t('readingTests')" to="/reading-tests" prepend-icon="mdi-book-open-blank-variant" />
-          <v-list-item :title="t('readingResults')" to="/reading-results" prepend-icon="mdi-chart-box-outline" />
-          <v-list-item :title="t('listeningTests')" to="/listening-tests" prepend-icon="mdi-headphones" />
-          <v-list-item :title="t('listeningResults')" to="/listening-results" prepend-icon="mdi-chart-timeline-variant" />
-          <v-list-item :title="t('writingTasks')" to="/writing-tasks" prepend-icon="mdi-pencil-outline" />
-          <v-list-item :title="t('myWritingSubmissions')" to="/writing-submissions" prepend-icon="mdi-file-document-edit-outline" />
-          <v-list-item :title="t('speakingTasks')" to="/speaking-tasks" prepend-icon="mdi-microphone-outline" />
-          <v-list-item :title="t('mySpeakingRecordings')" to="/speaking-recordings" prepend-icon="mdi-record-circle-outline" />
-          <v-list-item :title="t('account')" to="/account" prepend-icon="mdi-account" />
         </template>
 
         <template v-if="!auth.isAuthenticated">
@@ -479,8 +515,11 @@ function navActive(name) {
       </v-list>
     </v-navigation-drawer>
 
-    <v-main class="admin-shell-main">
+    <v-main class="admin-shell-main" :class="{ 'student-shell-main': isStudentShell }">
       <router-view v-if="isLanding" />
+      <div v-else-if="isStudentShell" class="student-main-wrap">
+        <router-view />
+      </div>
       <v-container v-else class="admin-main-wrap py-3 py-md-4" fluid>
         <router-view />
       </v-container>
@@ -602,7 +641,7 @@ function navActive(name) {
 
 .admin-shell-main :deep(.v-main__wrap) {
   min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 .admin-main-wrap {
@@ -610,5 +649,55 @@ function navActive(name) {
   max-width: 1280px;
   margin-inline: auto;
   min-width: 0;
+}
+
+.student-shell .v-main {
+  padding: 0 !important;
+}
+
+.student-main-wrap {
+  width: min(960px, calc(100% - 1.5rem));
+  margin: 0 auto;
+  padding: 1rem 0 1.75rem;
+  min-width: 0;
+}
+
+.student-subnav {
+  border-top: 1px solid #eef2f6;
+  background: #fff;
+}
+
+.student-subnav__inner {
+  width: min(960px, calc(100% - 1.5rem));
+  margin: 0 auto;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.55rem 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.student-subnav__link {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  color: #475467;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.student-subnav__link:hover {
+  background: #f2f4f7;
+  color: #0b1b34;
+}
+
+.student-subnav__link.is-active {
+  background: #0f5c66;
+  color: #fff;
 }
 </style>

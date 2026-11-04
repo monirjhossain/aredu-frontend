@@ -283,7 +283,7 @@ onMounted(load)
 }
 
 .my-courses__tab {
-  min-height: 2.2rem;
+  min-height: 44px;
   padding: 0 0.85rem;
   border: 0;
   border-radius: 999px;

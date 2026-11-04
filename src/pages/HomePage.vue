@@ -1,14 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CourseCard from '../components/marketing/CourseCard.vue'
 import MarketingFooter from '../components/marketing/MarketingFooter.vue'
-import { useAuthStore } from '../stores/auth'
 import { http } from '../services/http'
 import { apiError } from '../utils/apiError'
 
 const { t } = useI18n()
-const auth = useAuthStore()
 
 const loading = ref(true)
 const message = ref('')
@@ -19,18 +17,18 @@ const branding = ref({
   support_email: '',
   currency: 'BDT',
 })
-const about = ref('')
-const videos = ref([])
 const courses = ref([])
-const previewLessons = ref([])
-const activeVideo = ref(0)
 const courseFilter = ref('all')
+const storyIndex = ref(0)
+const openFaq = ref(0)
+const resultCounts = ref([0, 0, 0, 0])
+let storyTimer = null
+let observer = null
+let revealTimer = null
+let resultAnimated = false
 
 const brandName = computed(() => branding.value.platform_name || t('appName'))
 const currency = computed(() => branding.value.currency || 'BDT')
-const hasVideos = computed(() => videos.value.length > 0)
-const hasPreviews = computed(() => previewLessons.value.length > 0)
-const hasCourses = computed(() => courses.value.length > 0)
 
 const filteredCourses = computed(() => {
   if (courseFilter.value === 'all') return courses.value
@@ -52,15 +50,49 @@ const courseFilters = computed(() => [
 ])
 
 const testimonials = computed(() => [
-  { initials: 'FA', nameKey: 'landingTestimonial1Name', roleKey: 'landingTestimonial1Role', quoteKey: 'landingTestimonial1Quote' },
-  { initials: 'SR', nameKey: 'landingTestimonial2Name', roleKey: 'landingTestimonial2Role', quoteKey: 'landingTestimonial2Quote' },
-  { initials: 'NK', nameKey: 'landingTestimonial3Name', roleKey: 'landingTestimonial3Role', quoteKey: 'landingTestimonial3Quote' },
-  { initials: 'RH', nameKey: 'landingTestimonial4Name', roleKey: 'landingTestimonial4Role', quoteKey: 'landingTestimonial4Quote' },
-  { initials: 'TA', nameKey: 'landingTestimonial5Name', roleKey: 'landingTestimonial5Role', quoteKey: 'landingTestimonial5Quote' },
-  { initials: 'MI', nameKey: 'landingTestimonial6Name', roleKey: 'landingTestimonial6Role', quoteKey: 'landingTestimonial6Quote' },
+  { photo: '/images/grads/01.jpg', nameKey: 'landingTestimonial1Name', roleKey: 'landingTestimonial1Role', quoteKey: 'landingTestimonial1Quote' },
+  { photo: '/images/grads/02.jpg', nameKey: 'landingTestimonial2Name', roleKey: 'landingTestimonial2Role', quoteKey: 'landingTestimonial2Quote' },
+  { photo: '/images/grads/03.jpg', nameKey: 'landingTestimonial3Name', roleKey: 'landingTestimonial3Role', quoteKey: 'landingTestimonial3Quote' },
+  { photo: '/images/grads/04.jpg', nameKey: 'landingTestimonial4Name', roleKey: 'landingTestimonial4Role', quoteKey: 'landingTestimonial4Quote' },
+  { photo: '/images/grads/05.jpg', nameKey: 'landingTestimonial5Name', roleKey: 'landingTestimonial5Role', quoteKey: 'landingTestimonial5Quote' },
+  { photo: '/images/grads/06.jpg', nameKey: 'landingTestimonial6Name', roleKey: 'landingTestimonial6Role', quoteKey: 'landingTestimonial6Quote' },
 ])
 
-onMounted(loadLanding)
+const activeStory = computed(() => testimonials.value[storyIndex.value] || testimonials.value[0])
+
+const mockSkills = computed(() => [
+  { key: 'reading', labelKey: 'landingMocksReading', to: { name: 'register' } },
+  { key: 'listening', labelKey: 'landingMocksListening', to: { name: 'register' } },
+  { key: 'writing', labelKey: 'landingMocksWriting', to: { name: 'courses' } },
+  { key: 'speaking', labelKey: 'landingMocksSpeaking', to: { name: 'courses' } },
+])
+
+const resultStats = computed(() => [
+  { target: 2400, suffix: '+', labelKey: 'landingResultLearners' },
+  { target: 18000, suffix: '+', labelKey: 'landingResultMocks' },
+  { target: 1.2, suffix: '', labelKey: 'landingResultBand', decimals: 1 },
+  { target: 9600, suffix: '+', labelKey: 'landingResultTeachers' },
+])
+
+const faqs = computed(() => [
+  { q: 'landingFaq1Q', a: 'landingFaq1A' },
+  { q: 'landingFaq2Q', a: 'landingFaq2A' },
+  { q: 'landingFaq3Q', a: 'landingFaq3A' },
+  { q: 'landingFaq4Q', a: 'landingFaq4A' },
+  { q: 'landingFaq5Q', a: 'landingFaq5A' },
+])
+
+onMounted(async () => {
+  startStoryRotation()
+  revealTimer = window.setTimeout(setupReveal, 40)
+  await loadLanding()
+})
+
+onBeforeUnmount(() => {
+  if (storyTimer) window.clearInterval(storyTimer)
+  if (revealTimer) window.clearTimeout(revealTimer)
+  observer?.disconnect()
+})
 
 async function loadLanding() {
   loading.value = true
@@ -69,42 +101,82 @@ async function loadLanding() {
     const { data } = await http.get('/landing', { skipErrorToast: true })
     const payload = data.data || {}
     branding.value = { ...branding.value, ...(payload.branding || {}) }
-    about.value = payload.about || ''
-    videos.value = payload.videos || []
     courses.value = payload.courses || []
-    previewLessons.value = payload.preview_lessons || []
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
     loading.value = false
+    revealTimer = window.setTimeout(setupReveal, 60)
   }
 }
 
-function youtubeId(url) {
-  try {
-    const parsed = new URL(url)
-    if (parsed.hostname.includes('youtu.be')) {
-      return parsed.pathname.replace('/', '')
+function startStoryRotation() {
+  if (storyTimer) window.clearInterval(storyTimer)
+  storyTimer = window.setInterval(() => {
+    storyIndex.value = (storyIndex.value + 1) % testimonials.value.length
+  }, 5200)
+}
+
+function selectStory(index) {
+  storyIndex.value = index
+  startStoryRotation()
+}
+
+function toggleFaq(index) {
+  openFaq.value = openFaq.value === index ? -1 : index
+}
+
+function setupReveal() {
+  observer?.disconnect()
+  const markIn = (el) => {
+    el.classList.add('is-in')
+    for (const child of el.querySelectorAll('.land-reveal')) {
+      child.classList.add('is-in')
     }
-    if (parsed.hostname.includes('youtube.com')) {
-      return parsed.searchParams.get('v')
+    if (el.id === 'landing-results') animateResults()
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          markIn(entry.target)
+          observer?.unobserve(entry.target)
+        }
+      }
+    },
+    { threshold: 0.08, rootMargin: '0px 0px -4% 0px' },
+  )
+  for (const el of document.querySelectorAll('.land-section')) {
+    observer.observe(el)
+  }
+  window.setTimeout(() => {
+    for (const el of document.querySelectorAll('.land-section, .land-reveal')) {
+      if (!el.classList.contains('is-in')) el.classList.add('is-in')
     }
-  } catch {
-    return null
-  }
-  return null
+    animateResults()
+  }, 1600)
 }
 
-function embedUrl(url) {
-  const id = youtubeId(url)
-  return id ? `https://www.youtube.com/embed/${id}` : null
+function animateResults() {
+  if (resultAnimated) return
+  resultAnimated = true
+  const duration = 1400
+  const start = performance.now()
+  const tick = (now) => {
+    const p = Math.min(1, (now - start) / duration)
+    const eased = 1 - (1 - p) ** 3
+    resultCounts.value = resultStats.value.map((stat) => {
+      const value = stat.target * eased
+      return stat.decimals ? Number(value.toFixed(stat.decimals)) : Math.round(value)
+    })
+    if (p < 1) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 }
 
-function previewTarget(lesson) {
-  if (!auth.isAuthenticated) {
-    return { name: 'login', query: { redirect: `/courses/${lesson.course_slug}/lessons/${lesson.id}` } }
-  }
-  return { name: 'lesson-player', params: { slug: lesson.course_slug, lessonId: lesson.id } }
+function formatStat(value, decimals = 0) {
+  if (decimals) return Number(value).toFixed(decimals)
+  return Number(value).toLocaleString()
 }
 
 function scrollToCourses() {
@@ -113,66 +185,61 @@ function scrollToCourses() {
 </script>
 
 <template>
-  <div class="ostad">
-    <section class="ostad-hero" aria-label="Hero">
-      <div class="ostad-hero__media" aria-hidden="true" />
-      <div class="ostad-hero__shade" aria-hidden="true" />
-      <div class="ostad-hero__orb ostad-hero__orb--a" aria-hidden="true" />
-      <div class="ostad-hero__orb ostad-hero__orb--b" aria-hidden="true" />
-      <div class="ostad-hero__sheen" aria-hidden="true" />
-      <div class="ostad-hero__inner">
-        <p class="ostad-hero__brand ostad-hero__reveal">{{ brandName }}</p>
-        <span class="ostad-hero__rule" aria-hidden="true" />
-        <h1 class="ostad-hero__title ostad-hero__reveal">
+  <div class="land">
+    <section class="land-hero" aria-label="Hero">
+      <div class="land-hero__media" aria-hidden="true" />
+      <div class="land-hero__shade" aria-hidden="true" />
+      <div class="land-hero__glow" aria-hidden="true" />
+      <div class="land-hero__inner land-wrap">
+        <p class="land-hero__brand land-rise">{{ brandName }}</p>
+        <span class="land-hero__rule" aria-hidden="true" />
+        <h1 class="land-hero__title land-rise">
           {{ t('landingHeadlineLead') }}
-          <span class="ostad-hero__accent">{{ t('landingHeadlineAccent') }}</span>
+          <span>{{ t('landingHeadlineAccent') }}</span>
         </h1>
-        <p class="ostad-hero__sub ostad-hero__reveal">{{ t('landingSupport') }}</p>
-        <div class="ostad-hero__actions ostad-hero__reveal">
-          <button type="button" class="ostad-cta ostad-cta--pulse" @click="scrollToCourses">
+        <p class="land-hero__sub land-rise">{{ t('landingSupport') }}</p>
+        <div class="land-hero__actions land-rise">
+          <button type="button" class="land-btn land-btn--primary" @click="scrollToCourses">
             {{ t('landingStartLearning') }}
-            <span class="ostad-cta__arrow" aria-hidden="true">→</span>
+            <span aria-hidden="true">→</span>
           </button>
-          <router-link class="ostad-cta ostad-cta--ghost" :to="{ name: 'courses' }">
+          <router-link class="land-btn land-btn--ghost" :to="{ name: 'courses' }">
             {{ t('browseCourses') }}
           </router-link>
         </div>
       </div>
-      <div class="ostad-hero__scroll" aria-hidden="true">
-        <span class="ostad-hero__scroll-line" />
-      </div>
     </section>
 
-    <v-progress-linear v-if="loading" indeterminate color="#f5c518" class="ostad-loader" />
-    <v-alert v-else-if="message" type="error" variant="tonal" class="ma-6">{{ message }}</v-alert>
+    <section id="landing-courses" class="land-section land-courses">
+      <div class="land-wrap">
+        <div class="land-section__head land-reveal">
+          <p class="land-kicker">{{ t('courses') }}</p>
+          <h2>{{ t('landingCourses') }}</h2>
+          <p>{{ t('landingCoursesLead') }}</p>
+        </div>
 
-    <template v-else>
-      <section id="landing-courses" class="ostad-section ostad-courses">
-        <div class="ostad-wrap">
-          <div class="ostad-section__head">
-            <div>
-              <h2>{{ t('landingCourses') }}</h2>
-              <p>{{ t('landingCoursesLead') }}</p>
-            </div>
-          </div>
-
-          <div class="ostad-chips" role="tablist" :aria-label="t('courses')">
+        <div v-if="loading" class="land-loader">
+          <v-progress-circular indeterminate color="#f5c518" size="36" />
+        </div>
+        <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
+        <template v-else>
+          <div class="land-chips land-reveal" role="tablist" :aria-label="t('courses')">
             <button
               v-for="chip in courseFilters"
               :key="chip.key"
               type="button"
-              class="ostad-chip"
+              class="land-chip"
               :class="{ 'is-active': courseFilter === chip.key }"
               role="tab"
               :aria-selected="courseFilter === chip.key"
               @click="courseFilter = chip.key"
             >
               <span>{{ chip.label }}</span>
-              <small>{{ chip.count }} {{ t('landingCourseCount') }}</small>
+              <small>{{ chip.count }}</small>
             </button>
           </div>
 
-          <div v-if="filteredCourses.length" class="ostad-course-grid">
+          <div v-if="filteredCourses.length" class="land-course-grid land-reveal">
             <CourseCard
               v-for="course in filteredCourses"
               :key="course.id"
@@ -180,160 +247,182 @@ function scrollToCourses() {
               :currency="currency"
             />
           </div>
-          <p v-else class="ostad-empty">{{ t('noCourses') }}</p>
+          <p v-else class="land-empty land-reveal">{{ t('noCourses') }}</p>
 
-          <router-link class="ostad-see-all" :to="{ name: 'courses' }">
+          <router-link class="land-see-all land-reveal" :to="{ name: 'courses' }">
             {{ t('viewAllCourses') }}
             <span aria-hidden="true">→</span>
           </router-link>
-        </div>
-      </section>
+        </template>
+      </div>
+    </section>
 
-      <section class="ostad-section ostad-stories" aria-labelledby="landing-stories-title">
-        <div class="ostad-wrap ostad-stories__wrap">
-          <div class="ostad-stories__head">
-            <h2 id="landing-stories-title">{{ t('landingStoriesTitle') }}</h2>
-            <p>{{ t('landingStoriesLead') }}</p>
-          </div>
-
-          <div class="ostad-stories__grid">
-            <article
-              v-for="item in testimonials"
-              :key="item.nameKey"
-              class="ostad-story"
+    <section id="landing-mocks" class="land-section land-mocks">
+      <div class="land-wrap land-split">
+        <div class="land-split__copy land-reveal">
+          <p class="land-kicker">{{ t('landingMocksKicker') }}</p>
+          <h2>{{ t('landingMocksTitle') }}</h2>
+          <p>{{ t('landingMocksLead') }}</p>
+          <div class="land-skill-grid">
+            <router-link
+              v-for="skill in mockSkills"
+              :key="skill.key"
+              class="land-skill"
+              :to="skill.to"
             >
-              <p class="ostad-story__quote">{{ t(item.quoteKey) }}</p>
-              <div class="ostad-story__foot">
-                <div class="ostad-story__person">
-                  <span class="ostad-story__avatar" aria-hidden="true">{{ item.initials }}</span>
-                  <div>
-                    <strong>{{ t(item.nameKey) }}</strong>
-                    <span>{{ t(item.roleKey) }}</span>
-                  </div>
-                </div>
-                <span class="ostad-story__mark" aria-hidden="true">”</span>
-              </div>
-            </article>
+              <span class="land-skill__dot" aria-hidden="true" />
+              <span>{{ t(skill.labelKey) }}</span>
+            </router-link>
+          </div>
+          <router-link class="land-btn land-btn--solid" :to="{ name: 'courses' }">
+            {{ t('landingMocksCta') }}
+            <span aria-hidden="true">→</span>
+          </router-link>
+        </div>
+        <figure class="land-media land-reveal">
+          <img
+            src="/images/land/land-mocks.jpg"
+            :alt="t('landingMocksTitle')"
+            width="1280"
+            height="720"
+          >
+        </figure>
+      </div>
+    </section>
+
+    <section id="landing-cta" class="land-section land-cta">
+      <div class="land-cta__media" aria-hidden="true">
+        <img src="/images/land/land-cta.jpg" alt="" width="1600" height="900">
+      </div>
+      <div class="land-cta__shade" aria-hidden="true" />
+      <div class="land-wrap land-cta__inner land-reveal">
+        <p class="land-kicker land-kicker--light">{{ t('landingCtaKicker') }}</p>
+        <h2>{{ t('landingCtaTitle') }}</h2>
+        <p>{{ t('landingCtaLead') }}</p>
+        <div class="land-hero__actions">
+          <router-link class="land-btn land-btn--primary" :to="{ name: 'register' }">
+            {{ t('landingCtaPrimary') }}
+            <span aria-hidden="true">→</span>
+          </router-link>
+          <router-link class="land-btn land-btn--ghost" :to="{ name: 'courses' }">
+            {{ t('landingCtaSecondary') }}
+          </router-link>
+        </div>
+      </div>
+    </section>
+
+    <section id="landing-results" class="land-section land-results">
+      <div class="land-wrap land-split land-split--flip">
+        <figure class="land-media land-reveal">
+          <img
+            src="/images/land/land-results.jpg"
+            :alt="t('landingResultsTitle')"
+            width="1280"
+            height="720"
+          >
+        </figure>
+        <div class="land-split__copy land-reveal">
+          <p class="land-kicker">{{ t('landingResultsKicker') }}</p>
+          <h2>{{ t('landingResultsTitle') }}</h2>
+          <p>{{ t('landingResultsLead') }}</p>
+          <div class="land-stat-grid">
+            <div v-for="(stat, index) in resultStats" :key="stat.labelKey" class="land-stat">
+              <strong>
+                {{ formatStat(resultCounts[index], stat.decimals || 0) }}{{ stat.suffix }}
+              </strong>
+              <span>{{ t(stat.labelKey) }}</span>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="ostad-section ostad-videos">
-        <div class="ostad-wrap">
-          <div class="ostad-videos__title">
-            <span class="ostad-live">{{ t('landingLiveBadge') }}</span>
-            <h2>{{ t('landingVideos') }}</h2>
-          </div>
-          <p class="ostad-videos__lead">{{ t('landingVideosLead') }}</p>
+    <section
+      class="land-section land-stories"
+      aria-labelledby="landing-stories-title"
+    >
+      <div class="land-stories__bg" aria-hidden="true" />
+      <div class="land-stories__wrap land-wrap">
+        <div class="land-section__head land-section__head--light land-reveal">
+          <p class="land-kicker land-kicker--light">{{ t('landingStoriesKicker') }}</p>
+          <h2 id="landing-stories-title">{{ t('landingStoriesTitle') }}</h2>
+          <p>{{ t('landingStoriesLead') }}</p>
+        </div>
 
-          <template v-if="hasVideos">
-            <div class="ostad-video-stage">
-              <iframe
-                v-if="embedUrl(videos[activeVideo]?.url)"
-                class="ostad-video-frame"
-                :src="embedUrl(videos[activeVideo].url)"
-                :title="videos[activeVideo].title"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-              />
-              <video
-                v-else
-                class="ostad-video-frame"
-                :src="videos[activeVideo]?.url"
-                controls
-                playsinline
-              />
-            </div>
-            <div class="ostad-video-list">
-              <button
-                v-for="(video, index) in videos"
-                :key="`${video.url}-${index}`"
-                type="button"
-                class="ostad-video-item"
-                :class="{ 'is-active': index === activeVideo }"
-                @click="activeVideo = index"
+        <div class="land-stories__stage land-reveal">
+          <figure class="land-stories__photo">
+            <Transition name="land-fade" mode="out-in">
+              <img
+                :key="activeStory.photo"
+                :src="activeStory.photo"
+                :alt="t(activeStory.nameKey)"
+                width="640"
+                height="640"
               >
-                <span class="ostad-video-item__watch">{{ t('watchLesson') }}</span>
-                {{ video.title }}
+            </Transition>
+          </figure>
+
+          <div class="land-stories__copy">
+            <Transition name="land-fade" mode="out-in">
+              <blockquote :key="activeStory.quoteKey" class="land-stories__quote">
+                <p>{{ t(activeStory.quoteKey) }}</p>
+                <footer>
+                  <strong>{{ t(activeStory.nameKey) }}</strong>
+                  <span>{{ t(activeStory.roleKey) }}</span>
+                </footer>
+              </blockquote>
+            </Transition>
+
+            <div class="land-stories__thumbs" role="tablist" :aria-label="t('landingStoriesTitle')">
+              <button
+                v-for="(item, index) in testimonials"
+                :key="item.nameKey"
+                type="button"
+                class="land-stories__thumb"
+                :class="{ 'is-active': index === storyIndex }"
+                role="tab"
+                :aria-selected="index === storyIndex"
+                :aria-label="t(item.nameKey)"
+                @click="selectStory(index)"
+              >
+                <img :src="item.photo" :alt="t(item.nameKey)" width="72" height="72">
               </button>
             </div>
-          </template>
-
-          <div v-else-if="hasPreviews" class="ostad-preview-grid">
-            <router-link
-              v-for="lesson in previewLessons"
-              :key="lesson.id"
-              class="ostad-preview"
-              :to="previewTarget(lesson)"
-            >
-              <div
-                class="ostad-preview__media"
-                :style="lesson.cover_url ? { backgroundImage: `url(${lesson.cover_url})` } : undefined"
-              >
-                <span class="ostad-preview__live">{{ t('landingLiveBadge') }}</span>
-              </div>
-              <div class="ostad-preview__body">
-                <p>{{ lesson.course_title }}</p>
-                <h3>{{ lesson.title }}</h3>
-                <span>{{ t('watchFreePreview') }} →</span>
-              </div>
-            </router-link>
-          </div>
-
-          <p v-else class="ostad-empty ostad-empty--on-dark">{{ t('landingVideosEmpty') }}</p>
-        </div>
-      </section>
-
-      <section class="ostad-section ostad-about">
-        <div class="ostad-wrap">
-          <h2>{{ t('aboutCompany') }}</h2>
-          <p class="ostad-about__text">{{ about || t('landingAboutFallback') }}</p>
-          <div class="ostad-facts">
-            <article>
-              <h3>{{ t('landingFactCourses') }}</h3>
-              <p>{{ t('landingFactCoursesBody') }}</p>
-            </article>
-            <article>
-              <h3>{{ t('landingFactPractice') }}</h3>
-              <p>{{ t('landingFactPracticeBody') }}</p>
-            </article>
-            <article>
-              <h3>{{ t('landingFactTeachers') }}</h3>
-              <p>{{ t('landingFactTeachersBody') }}</p>
-            </article>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="ostad-section ostad-contact">
-        <div class="ostad-wrap ostad-contact__inner">
-          <div>
-            <h2>{{ t('contactUs') }}</h2>
-            <p v-if="branding.contact_information">{{ branding.contact_information }}</p>
-            <p v-else class="ostad-empty">{{ t('landingContactEmpty') }}</p>
-            <a
-              v-if="branding.support_email"
-              class="ostad-mail"
-              :href="`mailto:${branding.support_email}`"
+    <section id="landing-faq" class="land-section land-faq">
+      <div class="land-wrap">
+        <div class="land-section__head land-reveal">
+          <p class="land-kicker">{{ t('landingFaqKicker') }}</p>
+          <h2>{{ t('landingFaqTitle') }}</h2>
+          <p>{{ t('landingFaqLead') }}</p>
+        </div>
+        <div class="land-faq__list land-reveal">
+          <div
+            v-for="(item, index) in faqs"
+            :key="item.q"
+            class="land-faq__item"
+            :class="{ 'is-open': openFaq === index }"
+          >
+            <button
+              type="button"
+              class="land-faq__q"
+              :aria-expanded="openFaq === index"
+              @click="toggleFaq(index)"
             >
-              {{ branding.support_email }}
-            </a>
-          </div>
-          <div class="ostad-contact__actions">
-            <router-link class="ostad-cta ostad-cta--dark" :to="{ name: 'courses' }">
-              {{ t('browseCourses') }}
-            </router-link>
-            <router-link
-              v-if="!auth.isAuthenticated"
-              class="ostad-ghost"
-              :to="{ name: 'register' }"
-            >
-              {{ t('register') }}
-            </router-link>
+              <span>{{ t(item.q) }}</span>
+              <span class="land-faq__icon" aria-hidden="true">{{ openFaq === index ? '−' : '+' }}</span>
+            </button>
+            <div v-show="openFaq === index" class="land-faq__a">
+              <p>{{ t(item.a) }}</p>
+            </div>
           </div>
         </div>
-      </section>
-    </template>
+      </div>
+    </section>
 
     <MarketingFooter
       :brand-name="brandName"
@@ -345,816 +434,714 @@ function scrollToCourses() {
 </template>
 
 <style scoped>
-.ostad {
-  --ink: #0b1b34;
-  --muted: #5b6b7c;
+.land {
+  --ink: #102a2e;
+  --muted: #5b7378;
+  --line: #d9e6e8;
   --yellow: #f5c518;
   --yellow-ink: #1a1400;
-  --coral: #e85d4c;
-  --paper: #f7f9fc;
-  --line: #e6ebf2;
-  --navy: #101828;
+  --teal: #0f5c66;
+  --deep: #0a2a3a;
+  --shell: 960px;
   color: var(--ink);
-  background: #fff;
+  background: #f7fafb;
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
 }
 
-.ostad-hero {
-  position: relative;
-  min-height: calc(100vh - 64px);
-  min-height: calc(100dvh - 64px);
-  display: grid;
-  align-items: end;
-  padding: 2rem 1.25rem 4.5rem;
-  overflow: hidden;
-  color: #f7f9fc;
+.land-shell,
+.land-wrap {
+  width: min(var(--shell), calc(100% - 1.5rem));
+  margin: 0 auto;
 }
 
-.ostad-hero__media {
+.land-hero {
+  position: relative;
+  width: 100%;
+  min-height: min(38rem, calc(100dvh - 4.5rem));
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  color: #fff;
+  padding: 2.25rem 0 2.75rem;
+}
+
+.land-hero__media {
   position: absolute;
-  inset: -4%;
+  inset: -3%;
   background: url('/images/hero-study.jpg') center / cover no-repeat;
-  animation: ostad-hero-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) both, ostad-drift 22s ease-in-out 1.4s infinite alternate;
+  animation: land-hero-in 1.35s cubic-bezier(0.22, 1, 0.36, 1) both, land-drift 24s ease-in-out 1.3s infinite alternate;
   will-change: transform;
 }
 
-.ostad-hero__shade {
+.land-hero__shade {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(110deg, rgba(8, 20, 36, 0.9) 0%, rgba(8, 20, 36, 0.58) 46%, rgba(8, 20, 36, 0.32) 100%),
-    linear-gradient(180deg, rgba(8, 20, 36, 0.18) 0%, rgba(8, 20, 36, 0.78) 100%);
+    linear-gradient(115deg, rgba(8, 28, 34, 0.92) 0%, rgba(10, 42, 58, 0.62) 48%, rgba(10, 42, 58, 0.28) 100%),
+    linear-gradient(180deg, rgba(8, 28, 34, 0.2) 0%, rgba(8, 28, 34, 0.78) 100%);
   pointer-events: none;
-  animation: ostad-fade 1.1s ease both;
 }
 
-.ostad-hero__orb {
+.land-hero__glow {
   position: absolute;
+  width: min(48vw, 420px);
+  height: min(48vw, 420px);
+  left: -8%;
+  bottom: 4%;
   border-radius: 50%;
-  filter: blur(48px);
+  background: radial-gradient(circle, rgba(245, 197, 24, 0.38), transparent 68%);
+  filter: blur(28px);
   pointer-events: none;
-  opacity: 0.55;
-  mix-blend-mode: soft-light;
+  animation: land-glow 10s ease-in-out infinite alternate;
 }
 
-.ostad-hero__orb--a {
-  width: min(42vw, 420px);
-  height: min(42vw, 420px);
-  left: -6%;
-  bottom: 8%;
-  background: radial-gradient(circle, rgba(245, 197, 24, 0.55), transparent 68%);
-  animation: ostad-orb-a 12s ease-in-out infinite alternate;
-}
-
-.ostad-hero__orb--b {
-  width: min(36vw, 360px);
-  height: min(36vw, 360px);
-  right: 8%;
-  top: 12%;
-  background: radial-gradient(circle, rgba(232, 93, 76, 0.35), transparent 70%);
-  animation: ostad-orb-b 14s ease-in-out infinite alternate;
-}
-
-.ostad-hero__sheen {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.08) 48%,
-    transparent 62%
-  );
-  background-size: 220% 100%;
-  animation: ostad-sheen 9s ease-in-out 1.2s infinite;
-  opacity: 0.7;
-}
-
-.ostad-hero__inner {
+.land-hero__inner {
   position: relative;
   z-index: 1;
-  width: min(680px, 100%);
-  margin: 0 auto 0 0;
-  max-width: min(960px, 100%);
 }
 
-@media (min-width: 900px) {
-  .ostad-hero__inner {
-    margin-left: max(0px, calc((100% - 960px) / 2));
-  }
+.land-hero__inner > * {
+  max-width: 42rem;
 }
 
-.ostad-hero__reveal {
+.land-rise {
   opacity: 0;
-  animation: ostad-rise 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: land-rise 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.ostad-hero__brand.ostad-hero__reveal { animation-delay: 180ms; }
-.ostad-hero__title.ostad-hero__reveal { animation-delay: 420ms; }
-.ostad-hero__sub.ostad-hero__reveal { animation-delay: 560ms; }
-.ostad-hero__actions.ostad-hero__reveal { animation-delay: 700ms; }
+.land-hero__brand.land-rise { animation-delay: 160ms; }
+.land-hero__title.land-rise { animation-delay: 360ms; }
+.land-hero__sub.land-rise { animation-delay: 500ms; }
+.land-hero__actions.land-rise { animation-delay: 640ms; }
 
-.ostad-hero__brand {
-  margin: 0 0 0.65rem;
-  font-size: clamp(2rem, 5.5vw, 3.15rem);
+.land-hero__brand {
+  margin: 0 0 0.55rem;
+  font-size: clamp(2rem, 6vw, 3.2rem);
   font-weight: 800;
   letter-spacing: -0.045em;
   line-height: 1.02;
-  text-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
-.ostad-hero__rule {
+.land-hero__rule {
   display: block;
-  width: 3.25rem;
+  width: 3rem;
   height: 3px;
   margin: 0 0 1rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, #f5c518, rgba(245, 197, 24, 0.15));
+  background: linear-gradient(90deg, var(--yellow), rgba(245, 197, 24, 0.12));
   transform-origin: left center;
   opacity: 0;
-  animation: ostad-rule 1s cubic-bezier(0.22, 1, 0.36, 1) 360ms both;
+  animation: land-rule 900ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
 }
 
-.ostad-hero__title {
-  margin: 0 0 0.9rem;
-  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+.land-hero__title {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.2rem, 2.6vw, 1.65rem);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.3;
   max-width: 18ch;
 }
 
-.ostad-hero__accent {
-  display: inline-block;
-  color: #f5c518;
-  background: linear-gradient(90deg, #f5c518 0%, #ffe48a 45%, #f5c518 90%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: ostad-shimmer 4.5s ease-in-out 1.2s infinite;
+.land-hero__title span {
+  color: var(--yellow);
 }
 
-.ostad-hero__sub {
-  margin: 0 0 1.6rem;
-  max-width: 36ch;
-  color: rgba(247, 249, 252, 0.86);
-  font-size: 1.08rem;
-  line-height: 1.55;
-}
-
-.ostad-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.ostad-hero__actions .ostad-cta {
-  min-width: 0;
-}
-
-.ostad-hero__scroll {
-  position: absolute;
-  left: 50%;
-  bottom: 1.25rem;
-  z-index: 1;
-  width: 1px;
-  height: 2.4rem;
-  transform: translateX(-50%);
-  opacity: 0;
-  animation: ostad-fade 800ms ease 1.3s both;
-}
-
-.ostad-hero__scroll-line {
-  display: block;
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(247, 249, 252, 0.7), transparent);
-  transform-origin: top;
-  animation: ostad-scroll 1.8s ease-in-out 1.5s infinite;
-}
-
-.ostad-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 3rem;
-  min-width: min(320px, 100%);
-  padding: 0 1.35rem;
-  border: 0;
-  border-radius: 0.55rem;
-  background: var(--yellow);
-  color: var(--yellow-ink);
-  font: inherit;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
-  box-shadow: 0 10px 24px rgba(245, 197, 24, 0.35);
-}
-
-.ostad-cta:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 32px rgba(245, 197, 24, 0.42);
-}
-
-.ostad-cta:hover .ostad-cta__arrow {
-  transform: translateX(4px);
-}
-
-.ostad-cta__arrow {
-  display: inline-block;
-  transition: transform 180ms ease;
-}
-
-.ostad-cta--pulse {
-  animation: ostad-cta-glow 2.8s ease-in-out 1.4s infinite;
-}
-
-.ostad-cta--ghost {
-  min-width: 0;
-  background: transparent;
-  color: #f7f9fc;
-  border: 1px solid rgba(247, 249, 252, 0.45);
-  box-shadow: none;
-  backdrop-filter: blur(6px);
-}
-
-.ostad-cta--ghost:hover {
-  background: rgba(247, 249, 252, 0.1);
-  border-color: rgba(247, 249, 252, 0.75);
-  box-shadow: none;
-}
-
-.ostad-cta--dark {
-  box-shadow: none;
-  animation: none;
-}
-
-.ostad-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 3rem;
-  padding: 0 1.2rem;
-  border-radius: 0.55rem;
-  border: 1px solid rgba(11, 27, 52, 0.18);
-  color: var(--ink);
-  text-decoration: none;
-  font-weight: 650;
-}
-
-.ostad-loader {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.ostad-section {
-  padding: clamp(3rem, 7vw, 5rem) 0;
-}
-
-.ostad-wrap {
-  width: min(960px, calc(100% - 2rem));
-  margin: 0 auto;
-}
-
-.ostad-section__head h2,
-.ostad-about h2,
-.ostad-contact h2,
-.ostad-videos__title h2,
-.ostad-stories__head h2 {
-  margin: 0 0 0.55rem;
-  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.ostad-section__head p,
-.ostad-videos__lead,
-.ostad-stories__head p {
-  margin: 0;
-  color: var(--muted);
+.land-hero__sub {
+  margin: 0 0 1.5rem;
+  max-width: 34ch;
+  color: rgba(255, 255, 255, 0.88);
   font-size: 1.02rem;
   line-height: 1.55;
 }
 
-.ostad-stories {
-  background: #f5f7fa;
+.land-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
-.ostad-stories__wrap {
-  width: min(1100px, calc(100% - 2rem));
+.land-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 48px;
+  min-width: min(16rem, 100%);
+  padding: 0 1.2rem;
+  border-radius: 0.65rem;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.ostad-stories__head {
-  max-width: 42rem;
-  margin-bottom: 1.6rem;
+.land-btn--primary {
+  background: var(--yellow);
+  color: var(--yellow-ink);
+  box-shadow: 0 10px 24px rgba(245, 197, 24, 0.28);
 }
 
-.ostad-stories__grid {
-  columns: 1;
-  column-gap: 1rem;
+.land-btn--ghost {
+  background: transparent;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  min-width: min(12rem, 100%);
+}
+
+.land-btn--solid {
+  background: var(--teal);
+  color: #fff;
+  margin-top: 0.35rem;
+}
+
+.land-loader {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
+}
+
+.land-section {
+  padding: 2.5rem 0 2.75rem;
+}
+
+.land-section__head {
+  max-width: 40rem;
+  margin-bottom: 1.35rem;
+}
+
+.land-section__head h2,
+.land-split__copy h2 {
+  margin: 0.2rem 0 0.45rem;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.land-section__head p,
+.land-split__copy > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.land-section__head--light h2,
+.land-section__head--light p {
+  color: #fff;
+}
+
+.land-section__head--light p {
+  opacity: 0.86;
+}
+
+.land-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.land-kicker--light {
+  color: rgba(245, 197, 24, 0.95);
+}
+
+.land-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+.land-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.land-chip small {
+  opacity: 0.75;
+  font-weight: 700;
+}
+
+.land-chip.is-active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+
+.land-course-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.95rem;
 }
 
 @media (min-width: 720px) {
-  .ostad-stories__grid {
-    columns: 2;
-  }
-}
-
-@media (min-width: 1020px) {
-  .ostad-stories__grid {
-    columns: 3;
-  }
-}
-
-.ostad-story {
-  break-inside: avoid;
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 1.15rem 1.1rem 1rem;
-  border-radius: 0.9rem;
-  background: #fff;
-  border: 1px solid #e8edf3;
-  box-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
-}
-
-.ostad-story__quote {
-  margin: 0;
-  color: #1f2a37;
-  font-size: 0.95rem;
-  line-height: 1.65;
-}
-
-.ostad-story__foot {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.ostad-story__person {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.ostad-story__avatar {
-  display: grid;
-  place-items: center;
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0f5c66, #14919b);
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  flex: 0 0 auto;
-}
-
-.ostad-story__person strong,
-.ostad-story__person span {
-  display: block;
-}
-
-.ostad-story__person strong {
-  font-size: 0.92rem;
-  color: #0b1b34;
-}
-
-.ostad-story__person span {
-  color: #667085;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.ostad-story__mark {
-  color: #f5c518;
-  font-size: 2.4rem;
-  font-weight: 800;
-  line-height: 0.7;
-  font-family: Georgia, 'Times New Roman', serif;
-}
-
-.ostad-chips {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding: 1.4rem 0 1.6rem;
-  scrollbar-width: none;
-}
-
-.ostad-chips::-webkit-scrollbar {
-  display: none;
-}
-
-.ostad-chip {
-  flex: 0 0 auto;
-  display: grid;
-  gap: 0.15rem;
-  min-width: 148px;
-  padding: 0.85rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
-}
-
-.ostad-chip small {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
-.ostad-chip.is-active {
-  background: var(--navy);
-  border-color: var(--navy);
-  color: #fff;
-}
-
-.ostad-chip.is-active small {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.ostad-course-grid,
-.ostad-preview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.1rem;
-}
-
-.ostad-course-grid > :deep(.m-course) {
-  height: 100%;
-}
-
-@media (min-width: 760px) {
-  .ostad-course-grid,
-  .ostad-preview-grid {
+  .land-course-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1080px) {
-  .ostad-course-grid {
+@media (min-width: 1040px) {
+  .land-course-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-.ostad-see-all {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  margin-top: 1.5rem;
-  min-height: 3rem;
-  border-radius: 0.7rem;
-  background: #eef1f5;
-  color: var(--ink);
-  text-decoration: none;
-  font-weight: 700;
+.land-empty {
+  margin: 0;
+  color: var(--muted);
 }
 
-.ostad-videos {
-  background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.12), transparent 35%),
-    #0b1220;
-  color: #f4f7fb;
-}
-
-.ostad-videos__title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  text-align: center;
-}
-
-.ostad-videos__lead {
-  text-align: center;
-  color: rgba(244, 247, 251, 0.72);
-  margin: 0.7rem auto 1.6rem;
-  max-width: 42ch;
-}
-
-.ostad-live {
+.land-see-all {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.3rem;
-  background: var(--coral);
-  color: #fff;
-  font-size: 0.72rem;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  min-height: 44px;
+  color: var(--teal);
   font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.ostad-video-stage {
-  border-radius: 1rem;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  animation: ostad-fade 700ms ease both;
-}
-
-.ostad-video-frame {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-
-.ostad-video-list {
-  display: grid;
-  gap: 0.7rem;
-  margin-top: 1rem;
-}
-
-@media (min-width: 800px) {
-  .ostad-video-list {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.ostad-video-item {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.9rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-}
-
-.ostad-video-item.is-active,
-.ostad-video-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.ostad-video-item__watch {
-  flex: 0 0 auto;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  background: var(--yellow);
-  color: var(--yellow-ink);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.ostad-preview {
-  display: block;
-  overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
   text-decoration: none;
-  color: inherit;
-  transition: transform 180ms ease;
 }
 
-.ostad-preview:hover {
-  transform: translateY(-3px);
-}
-
-.ostad-preview__media {
-  position: relative;
-  aspect-ratio: 16 / 10;
+.land-courses {
   background:
-    linear-gradient(135deg, #1d3b63, #0f5c66),
-    center / cover no-repeat;
+    radial-gradient(circle at top right, rgba(15, 92, 102, 0.06), transparent 40%),
+    #f7fafb;
 }
 
-.ostad-preview__live {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.3rem;
-  background: #fff;
-  color: var(--coral);
-  border: 1px solid rgba(232, 93, 76, 0.35);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.ostad-preview__body {
-  padding: 1rem;
-}
-
-.ostad-preview__body p {
-  margin: 0 0 0.35rem;
-  color: rgba(244, 247, 251, 0.65);
-  font-size: 0.85rem;
-}
-
-.ostad-preview__body h3 {
-  margin: 0 0 0.55rem;
-  font-size: 1.05rem;
-}
-
-.ostad-preview__body span {
-  color: var(--yellow);
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.ostad-about {
-  background: var(--paper);
-}
-
-.ostad-about__text {
-  margin: 0 0 1.8rem;
-  max-width: 62ch;
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.65;
-}
-
-.ostad-facts {
+.land-split {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 @media (min-width: 860px) {
-  .ostad-facts {
-    grid-template-columns: repeat(3, 1fr);
+  .land-split {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 2rem;
+  }
+
+  .land-split--flip {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   }
 }
 
-.ostad-facts article {
-  padding: 1.2rem 1.15rem;
-  border-radius: 1rem;
+.land-split__copy {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+}
+
+.land-media {
+  margin: 0;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: #d9e6e8;
+  box-shadow: 0 18px 40px rgba(16, 42, 46, 0.12);
+}
+
+.land-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: land-drift 22s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.land-mocks {
+  background: #fff;
+}
+
+.land-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.land-skill {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 48px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #f7fafb;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 750;
+  font-size: 0.92rem;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.land-skill:hover {
+  transform: translateY(-2px);
+  border-color: rgba(15, 92, 102, 0.35);
+  background: #fff;
+}
+
+.land-skill__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--yellow);
+  box-shadow: 0 0 0 4px rgba(245, 197, 24, 0.18);
+  flex: 0 0 auto;
+}
+
+.land-results {
+  background:
+    radial-gradient(circle at left bottom, rgba(245, 197, 24, 0.12), transparent 36%),
+    #f7fafb;
+}
+
+.land-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.land-stat {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: 0.85rem;
   background: #fff;
   border: 1px solid var(--line);
 }
 
-.ostad-facts h3 {
-  margin: 0 0 0.45rem;
-  font-size: 1.05rem;
+.land-stat strong {
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--teal);
 }
 
-.ostad-facts p {
-  margin: 0;
+.land-stat span {
   color: var(--muted);
-  line-height: 1.55;
+  font-size: 0.84rem;
+  font-weight: 650;
 }
 
-.ostad-contact {
-  background: #fff;
-  border-top: 1px solid var(--line);
+.land-stories {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(145deg, #0b3d36 0%, #0f5c66 48%, #0a2a3a 100%);
+  padding: 2.75rem 0 3rem;
 }
 
-.ostad-contact__inner {
+.land-stories__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(245, 197, 24, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 70%, rgba(255, 255, 255, 0.08), transparent 36%);
+  pointer-events: none;
+}
+
+.land-stories__wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.land-stories__stage {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  align-items: center;
 }
 
 @media (min-width: 860px) {
-  .ostad-contact__inner {
-    grid-template-columns: 1.4fr 1fr;
-    align-items: end;
+  .land-stories__stage {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: 1.75rem;
   }
 }
 
-.ostad-contact p {
-  margin: 0 0 0.7rem;
-  color: var(--muted);
+.land-stories__photo {
+  margin: 0;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  aspect-ratio: 1;
+  max-width: 28rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.land-stories__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.land-stories__quote {
+  margin: 0;
+}
+
+.land-stories__quote p {
+  margin: 0 0 1.1rem;
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
   line-height: 1.55;
-  max-width: 46ch;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-.ostad-mail {
-  color: var(--coral);
-  font-weight: 700;
-  text-decoration: none;
+.land-stories__quote footer {
+  display: grid;
+  gap: 0.15rem;
 }
 
-.ostad-contact__actions {
+.land-stories__quote strong {
+  font-size: 1rem;
+}
+
+.land-stories__quote span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.88rem;
+}
+
+.land-stories__thumbs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  gap: 0.55rem;
+  margin-top: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
 }
 
-.ostad-empty {
+.land-stories__thumb {
+  flex: 0 0 auto;
+  width: 3.4rem;
+  height: 3.4rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  opacity: 0.72;
+  transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease;
+}
+
+.land-stories__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.land-stories__thumb.is-active {
+  opacity: 1;
+  border-color: var(--yellow);
+  transform: translateY(-2px);
+}
+
+.land-faq {
+  background: #fff;
+}
+
+.land-faq__list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.land-faq__item {
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #f7fafb;
+  overflow: hidden;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.land-faq__item.is-open {
+  border-color: rgba(15, 92, 102, 0.35);
+  background: #fff;
+}
+
+.land-faq__q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 52px;
+  padding: 0.95rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+}
+
+.land-faq__icon {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(15, 92, 102, 0.1);
+  color: var(--teal);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.land-faq__a {
+  padding: 0 1rem 1rem;
+}
+
+.land-faq__a p {
   margin: 0;
   color: var(--muted);
+  line-height: 1.55;
 }
 
-.ostad-empty--on-dark {
-  color: rgba(244, 247, 251, 0.7);
-  text-align: center;
+.land-cta {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  min-height: min(26rem, 70vw);
+  display: grid;
+  align-items: end;
+  padding: 3rem 0;
 }
 
-@keyframes ostad-rise {
-  from {
-    opacity: 0;
-    transform: translateY(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.land-cta__media,
+.land-cta__shade {
+  position: absolute;
+  inset: 0;
 }
 
-@keyframes ostad-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.land-cta__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: land-drift 28s ease-in-out infinite alternate;
 }
 
-@keyframes ostad-hero-in {
-  from { transform: scale(1.18); opacity: 0.55; }
-  to { transform: scale(1.06); opacity: 1; }
+.land-cta__shade {
+  background:
+    linear-gradient(115deg, rgba(8, 28, 34, 0.92) 0%, rgba(10, 42, 58, 0.55) 55%, rgba(10, 42, 58, 0.28) 100%),
+    linear-gradient(180deg, rgba(8, 28, 34, 0.2), rgba(8, 28, 34, 0.72));
 }
 
-@keyframes ostad-drift {
-  from { transform: scale(1.06) translate3d(0, 0, 0); }
-  to { transform: scale(1.14) translate3d(-2%, -1.2%, 0); }
+.land-cta__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  max-width: min(var(--shell), calc(100% - 1.5rem));
 }
 
-@keyframes ostad-orb-a {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to { transform: translate3d(12%, -18%, 0) scale(1.15); }
+.land-cta__inner h2 {
+  margin: 0;
+  max-width: 16ch;
+  font-size: clamp(1.55rem, 3.4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
-@keyframes ostad-orb-b {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to { transform: translate3d(-16%, 10%, 0) scale(1.2); }
+.land-cta__inner > p {
+  margin: 0 0 0.35rem;
+  max-width: 36ch;
+  color: rgba(255, 255, 255, 0.86);
+  line-height: 1.5;
 }
 
-@keyframes ostad-sheen {
-  0%, 40% { background-position: 120% 0; opacity: 0; }
-  50% { opacity: 0.75; }
-  70%, 100% { background-position: -40% 0; opacity: 0; }
+.land-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1), transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes ostad-rule {
-  from { transform: scaleX(0); opacity: 0; }
-  to { transform: scaleX(1); opacity: 1; }
+.land-reveal.is-in {
+  opacity: 1;
+  transform: none;
 }
 
-@keyframes ostad-shimmer {
-  0%, 100% { background-position: 100% 0; }
-  50% { background-position: 0% 0; }
+.land-fade-enter-active,
+.land-fade-leave-active {
+  transition: opacity 280ms ease, transform 280ms ease;
 }
 
-@keyframes ostad-cta-glow {
-  0%, 100% { box-shadow: 0 10px 24px rgba(245, 197, 24, 0.32); }
-  50% { box-shadow: 0 14px 34px rgba(245, 197, 24, 0.55); }
+.land-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
-@keyframes ostad-scroll {
-  0% { transform: scaleY(0.35); opacity: 0; }
-  35% { opacity: 1; }
-  100% { transform: scaleY(1); opacity: 0; }
+.land-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@keyframes land-hero-in {
+  from { opacity: 0; transform: scale(1.08); }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes land-drift {
+  from { transform: scale(1.02) translate3d(0, 0, 0); }
+  to { transform: scale(1.07) translate3d(-1.2%, -0.8%, 0); }
+}
+
+@keyframes land-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes land-rule {
+  from { opacity: 0; transform: scaleX(0.2); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes land-glow {
+  from { transform: translate3d(0, 0, 0); opacity: 0.55; }
+  to { transform: translate3d(8%, -6%, 0); opacity: 0.85; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ostad-hero__reveal,
-  .ostad-hero__media,
-  .ostad-hero__shade,
-  .ostad-hero__orb,
-  .ostad-hero__sheen,
-  .ostad-hero__rule,
-  .ostad-hero__accent,
-  .ostad-hero__scroll,
-  .ostad-hero__scroll-line,
-  .ostad-cta--pulse,
-  .ostad-course,
-  .ostad-preview,
-  .ostad-video-stage {
+  .land-hero__media,
+  .land-hero__glow,
+  .land-rise,
+  .land-hero__rule,
+  .land-media img,
+  .land-cta__media img {
     animation: none !important;
-    transition: none;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
-  .ostad-hero__reveal,
-  .ostad-hero__rule,
-  .ostad-hero__scroll {
+  .land-reveal {
     opacity: 1;
     transform: none;
-  }
-
-  .ostad-hero__accent {
-    color: #f5c518;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-  }
-
-  .ostad-hero__media {
-    transform: scale(1.04);
-    opacity: 1;
+    transition: none;
   }
 }
 </style>

@@ -23,11 +23,6 @@ const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
 
-const examTypes = computed(() => [
-  { title: t('academic'), value: 'academic' },
-  { title: t('general'), value: 'general' },
-])
-
 onMounted(load)
 watch(() => route.params.id, load)
 
@@ -82,13 +77,24 @@ async function save() {
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="isEdit ? t('editReadingTest') : t('newReadingTest')">
+    <AdminPageHero
+      :title="isEdit ? t('editReadingTest') : t('newReadingTest')"
+      :lead="t('readingFormLead')"
+    >
       <template #actions>
-        <RouterLink :to="{ name: 'admin-reading-tests' }" class="admin-ui__btn admin-ui__btn--ghost">
+        <RouterLink
+          :to="{ name: 'admin-reading-tests' }"
+          class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm"
+        >
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToReadingTests') }}
         </RouterLink>
-        <button type="button" class="admin-ui__btn admin-ui__btn--primary" :disabled="saving || loading" @click="save">
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          :disabled="saving || loading"
+          @click="save"
+        >
           <v-icon size="18">mdi-content-save</v-icon>
           {{ t('save') }}
         </button>
@@ -102,22 +108,46 @@ async function save() {
     </div>
     <section v-else class="admin-ui__panel">
       <div class="admin-ui__panel-head">
-        <h2>{{ isEdit ? t('editReadingTest') : t('newReadingTest') }}</h2>
-      </div>
-      <v-form @submit.prevent="save">
-        <div class="admin-ui__form-grid admin-ui__form-grid--2">
-          <v-text-field v-model="form.title" :label="t('title')" required />
-          <v-text-field v-model="form.slug" :label="t('slug')" :hint="t('slugHint')" persistent-hint />
-          <v-select v-model="form.exam_type" :items="examTypes" :label="t('examType')" />
-          <v-text-field
-            v-model.number="form.duration_minutes"
-            type="number"
-            min="1"
-            :label="t('durationMinutes')"
-          />
+        <div>
+          <h2>{{ isEdit ? t('editReadingTest') : t('newReadingTest') }}</h2>
+          <p>{{ t('readingFormLead') }}</p>
         </div>
-        <v-textarea v-model="form.instructions" :label="t('instructions')" rows="4" />
-        <v-switch v-model="form.is_published" :label="t('published')" color="#0f5c66" />
+      </div>
+
+      <form class="reading-form" @submit.prevent="save">
+        <div class="admin-ui__form-grid admin-ui__form-grid--2">
+          <label class="admin-ui__field">
+            <span>{{ t('title') }}</span>
+            <input v-model="form.title" type="text" required>
+          </label>
+          <label class="admin-ui__field">
+            <span>{{ t('slug') }}</span>
+            <input v-model="form.slug" type="text" :placeholder="t('slugHint')">
+            <small>{{ t('slugHint') }}</small>
+          </label>
+          <label class="admin-ui__field">
+            <span>{{ t('examType') }}</span>
+            <select v-model="form.exam_type">
+              <option value="academic">{{ t('academic') }}</option>
+              <option value="general">{{ t('general') }}</option>
+            </select>
+          </label>
+          <label class="admin-ui__field">
+            <span>{{ t('durationMinutes') }}</span>
+            <input v-model.number="form.duration_minutes" type="number" min="1" required>
+          </label>
+        </div>
+
+        <label class="admin-ui__field">
+          <span>{{ t('instructions') }}</span>
+          <textarea v-model="form.instructions" rows="4" />
+        </label>
+
+        <label class="admin-ui__switch">
+          <input v-model="form.is_published" type="checkbox">
+          {{ t('published') }}
+        </label>
+
         <div class="admin-ui__form-actions">
           <button
             type="submit"
@@ -127,7 +157,14 @@ async function save() {
             {{ t('save') }}
           </button>
         </div>
-      </v-form>
+      </form>
     </section>
   </div>
 </template>
+
+<style scoped>
+.reading-form {
+  display: grid;
+  gap: 1rem;
+}
+</style>

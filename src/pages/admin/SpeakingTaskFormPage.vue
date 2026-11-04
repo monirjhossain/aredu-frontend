@@ -169,52 +169,81 @@ async function removeQuestion(item) {
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="isEdit ? t('editSpeakingTask') : t('newSpeakingTask')">
+    <AdminPageHero :title="isEdit ? t('editSpeakingTask') : t('newSpeakingTask')" :lead="t('speakingFormLead')">
       <template #actions>
-        <RouterLink :to="{ name: 'admin-speaking-tasks' }" class="admin-ui__btn admin-ui__btn--ghost">
+        <RouterLink
+          :to="{ name: 'admin-speaking-tasks' }"
+          class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm"
+        >
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToSpeakingTasks') }}
         </RouterLink>
-        <button type="button" class="admin-ui__btn admin-ui__btn--primary" :disabled="saving || loading" @click="save">
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          :disabled="saving || loading"
+          @click="save"
+        >
           <v-icon size="18">mdi-content-save</v-icon>
           {{ t('save') }}
         </button>
       </template>
     </AdminPageHero>
 
+    <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
+
     <div v-if="loading" class="admin-ui__panel admin-ui__loading">
       <v-progress-circular indeterminate color="#0f5c66" size="36" />
     </div>
     <template v-else>
-      <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
-
       <section class="admin-ui__panel">
         <div class="admin-ui__panel-head">
-          <h2>{{ isEdit ? t('editSpeakingTask') : t('newSpeakingTask') }}</h2>
+          <div>
+            <h2>{{ isEdit ? t('editSpeakingTask') : t('newSpeakingTask') }}</h2>
+            <p>{{ t('speakingFormLead') }}</p>
+          </div>
         </div>
-        <v-form @submit.prevent="save">
+
+        <form class="speaking-form" @submit.prevent="save">
           <div class="admin-ui__form-grid admin-ui__form-grid--2">
-            <v-text-field v-model="form.title" :label="t('title')" :error-messages="fieldErrors.title || []" />
-            <v-select v-model="form.part" :items="parts" :label="t('speakingPart')" :error-messages="fieldErrors.part || []" />
+            <label class="admin-ui__field">
+              <span>{{ t('title') }}</span>
+              <input v-model="form.title" type="text" required>
+              <small v-if="fieldErrors.title" class="speaking-form__error">{{ [].concat(fieldErrors.title).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('speakingPart') }}</span>
+              <select v-model="form.part">
+                <option v-for="item in parts" :key="item.value" :value="item.value">{{ item.title }}</option>
+              </select>
+              <small v-if="fieldErrors.part" class="speaking-form__error">{{ [].concat(fieldErrors.part).join(' ') }}</small>
+            </label>
           </div>
-          <v-textarea v-model="form.instructions" :label="t('instructions')" rows="3" :error-messages="fieldErrors.instructions || []" />
+
+          <label class="admin-ui__field">
+            <span>{{ t('instructions') }}</span>
+            <textarea v-model="form.instructions" rows="3" />
+            <small v-if="fieldErrors.instructions" class="speaking-form__error">{{ [].concat(fieldErrors.instructions).join(' ') }}</small>
+          </label>
+
           <div class="admin-ui__form-grid admin-ui__form-grid--2">
-            <v-text-field
-              v-model.number="form.preparation_seconds"
-              type="number"
-              min="0"
-              :label="t('preparationSeconds')"
-              :error-messages="fieldErrors.preparation_seconds || []"
-            />
-            <v-text-field
-              v-model.number="form.response_seconds"
-              type="number"
-              min="1"
-              :label="t('responseSeconds')"
-              :error-messages="fieldErrors.response_seconds || []"
-            />
+            <label class="admin-ui__field">
+              <span>{{ t('preparationSeconds') }}</span>
+              <input v-model.number="form.preparation_seconds" type="number" min="0">
+              <small v-if="fieldErrors.preparation_seconds" class="speaking-form__error">{{ [].concat(fieldErrors.preparation_seconds).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('responseSeconds') }}</span>
+              <input v-model.number="form.response_seconds" type="number" min="1">
+              <small v-if="fieldErrors.response_seconds" class="speaking-form__error">{{ [].concat(fieldErrors.response_seconds).join(' ') }}</small>
+            </label>
           </div>
-          <v-switch v-model="form.is_published" :label="t('published')" color="#0f5c66" />
+
+          <label class="admin-ui__switch">
+            <input v-model="form.is_published" type="checkbox">
+            {{ t('published') }}
+          </label>
+
           <div class="admin-ui__form-actions">
             <button
               type="submit"
@@ -224,7 +253,7 @@ async function removeQuestion(item) {
               {{ t('save') }}
             </button>
           </div>
-        </v-form>
+        </form>
       </section>
 
       <template v-if="isEdit">
@@ -235,46 +264,42 @@ async function removeQuestion(item) {
               <p>{{ t('speakingQuestionsHint') }}</p>
             </div>
           </div>
-          <v-textarea
-            v-model="questionForm.prompt"
-            :label="t('questionPrompt')"
-            rows="3"
-            :error-messages="fieldErrors.prompt || []"
-          />
-          <v-textarea
-            v-model="questionForm.cue_card"
-            :label="t('cueCard')"
-            rows="4"
-            :hint="t('cueCardHint')"
-            persistent-hint
-            :error-messages="fieldErrors.cue_card || []"
-          />
-          <v-text-field
-            v-model.number="questionForm.position"
-            type="number"
-            min="1"
-            :label="t('position')"
-            class="mt-2"
-            :error-messages="fieldErrors.position || []"
-          />
-          <div class="admin-ui__form-actions">
-            <button
-              type="button"
-              class="admin-ui__btn admin-ui__btn--solid admin-ui__btn--block admin-ui__btn--block-sm"
-              :disabled="saving"
-              @click="saveQuestion"
-            >
-              {{ editingQuestionId ? t('save') : t('addQuestion') }}
-            </button>
-            <button
-              v-if="editingQuestionId"
-              type="button"
-              class="admin-ui__btn admin-ui__btn--soft admin-ui__btn--block admin-ui__btn--block-sm"
-              @click="resetQuestionForm"
-            >
-              {{ t('cancel') }}
-            </button>
-          </div>
+
+          <form class="speaking-form" @submit.prevent="saveQuestion">
+            <label class="admin-ui__field">
+              <span>{{ t('questionPrompt') }}</span>
+              <textarea v-model="questionForm.prompt" rows="3" />
+              <small v-if="fieldErrors.prompt" class="speaking-form__error">{{ [].concat(fieldErrors.prompt).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('cueCard') }}</span>
+              <textarea v-model="questionForm.cue_card" rows="4" />
+              <small v-if="!fieldErrors.cue_card">{{ t('cueCardHint') }}</small>
+              <small v-else class="speaking-form__error">{{ [].concat(fieldErrors.cue_card).join(' ') }}</small>
+            </label>
+            <label class="admin-ui__field">
+              <span>{{ t('position') }}</span>
+              <input v-model.number="questionForm.position" type="number" min="1">
+              <small v-if="fieldErrors.position" class="speaking-form__error">{{ [].concat(fieldErrors.position).join(' ') }}</small>
+            </label>
+            <div class="admin-ui__form-actions">
+              <button
+                type="submit"
+                class="admin-ui__btn admin-ui__btn--solid admin-ui__btn--block admin-ui__btn--block-sm"
+                :disabled="saving"
+              >
+                {{ editingQuestionId ? t('save') : t('addQuestion') }}
+              </button>
+              <button
+                v-if="editingQuestionId"
+                type="button"
+                class="admin-ui__btn admin-ui__btn--soft admin-ui__btn--block admin-ui__btn--block-sm"
+                @click="resetQuestionForm"
+              >
+                {{ t('cancel') }}
+              </button>
+            </div>
+          </form>
         </section>
 
         <section class="admin-ui__panel">
@@ -292,7 +317,7 @@ async function removeQuestion(item) {
               <div class="admin-ui__row-main">
                 <div>
                   <h3 class="admin-ui__row-title">{{ item.position }}. {{ item.prompt }}</h3>
-                  <p v-if="item.cue_card" class="admin-ui__row-meta" style="white-space: pre-wrap">{{ item.cue_card }}</p>
+                  <p v-if="item.cue_card" class="admin-ui__row-meta speaking-form__cue">{{ item.cue_card }}</p>
                 </div>
               </div>
               <div class="admin-ui__row-actions">
@@ -308,6 +333,7 @@ async function removeQuestion(item) {
                   type="button"
                   class="admin-ui__icon-btn admin-ui__icon-btn--danger"
                   :aria-label="t('delete')"
+                  :disabled="saving"
                   @click="removeQuestion(item)"
                 >
                   <v-icon size="18">mdi-delete</v-icon>
@@ -320,3 +346,18 @@ async function removeQuestion(item) {
     </template>
   </div>
 </template>
+
+<style scoped>
+.speaking-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.speaking-form__error {
+  color: #b42318;
+}
+
+.speaking-form__cue {
+  white-space: pre-wrap;
+}
+</style>
