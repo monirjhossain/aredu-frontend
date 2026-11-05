@@ -23,6 +23,8 @@ const questionForm = ref({ prompt: '', marks: 1, correct_option_id: null, accept
 const audioFile = ref(null)
 const audioObjectUrl = ref('')
 const sectionTitleDraft = ref('')
+const uploadingAudio = ref(false)
+const uploadProgress = ref(0)
 
 const groupTypes = computed(() => [
   { title: t('questionTypes.multiple_choice'), value: 'multiple_choice' },
@@ -53,6 +55,29 @@ const optionItems = computed(() =>
     value: option.id,
   })),
 )
+
+const audioReadyCount = computed(() =>
+  (test.value?.sections || []).filter((section) => section.audio).length,
+)
+
+const heroLead = computed(() => {
+  if (!test.value) return t('listeningBuilderLead')
+  const exam = test.value.exam_type === 'general' ? t('general') : t('academic')
+  const minutes = Math.round(Number(test.value.duration_seconds || 0) / 60)
+  return `${exam} · ${t('minutesCount', { count: minutes })} · ${t('audioReadyCount', { ready: audioReadyCount.value, total: test.value.sections?.length || 0 })}`
+})
+
+function sectionQuestionCount(section) {
+  return (section?.groups || []).reduce((sum, group) => sum + (group.questions?.length || 0), 0)
+}
+
+function selectSection(section) {
+  selectedSectionId.value = section.id
+}
+
+function selectGroup(group) {
+  selectedGroupId.value = group.id
+}
 
 onMounted(load)
 onBeforeUnmount(revokeAudio)
@@ -139,18 +164,40 @@ async function saveSectionTitle() {
 }
 
 async function uploadAudio() {
-  if (!selectedSection.value || !audioFile.value) return
+  if (!selectedSection.value || !audioFile.value || uploadingAudio.value) return
   const body = new FormData()
   body.append('audio', audioFile.value)
-  await run(async () => {
+  uploadingAudio.value = true
+  uploadProgress.value = 0
+  message.value = ''
+  busy.value = true
+  try {
     const { data } = await http.post(
       `/admin/listening-tests/${route.params.id}/sections/${selectedSection.value.id}/audio`,
       body,
-      { skipErrorToast: true },
+      {
+        skipErrorToast: true,
+        skipLoading: true,
+        onUploadProgress: (event) => {
+          const total = Number(event.total) || 0
+          if (total > 0) {
+            uploadProgress.value = Math.min(100, Math.round((event.loaded / total) * 100))
+            return
+          }
+          // Some browsers omit total for FormData — show indeterminate-ish ramp.
+          uploadProgress.value = Math.min(95, uploadProgress.value + 5)
+        },
+      },
     )
+    uploadProgress.value = 100
     audioFile.value = null
-    return data.data
-  })
+    applyTree(data.data)
+  } catch (error) {
+    message.value = apiError(error).message || t('requestFailed')
+  } finally {
+    busy.value = false
+    uploadingAudio.value = false
+  }
 }
 
 async function removeAudio() {
@@ -256,26 +303,42 @@ async function togglePublished(value) {
   })
 }
 
-function onFile(files) {
+function onFile(event) {
+  const files = event?.target?.files
   audioFile.value = files?.[0] || null
+  uploadProgress.value = 0
 }
 </script>
 
 <template>
   <div class="admin-ui">
-    <AdminPageHero :title="test?.title || t('manageListeningTests')" :lead="t('listeningBuilderLead')">
+    <AdminPageHero
+      :title="test?.title || t('manageListeningTests')"
+      :lead="heroLead"
+    >
       <template #actions>
-        <RouterLink :to="{ name: 'admin-listening-tests' }" class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm">
+        <RouterLink
+          :to="{ name: 'admin-listening-tests' }"
+          class="admin-ui__btn admin-ui__btn--ghost admin-ui__btn--block admin-ui__btn--block-sm"
+        >
           <v-icon size="18">mdi-arrow-left</v-icon>
           {{ t('backToListeningTests') }}
         </RouterLink>
         <template v-if="test">
-          <RouterLink :to="{ name: 'admin-listening-test-edit', params: { id: test.id } }" class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm">
+          <RouterLink
+            :to="{ name: 'admin-listening-test-edit', params: { id: test.id } }"
+            class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          >
             <v-icon size="18">mdi-pencil</v-icon>
             {{ t('edit') }}
           </RouterLink>
           <label class="admin-ui__switch" style="color: #fff">
-            <input type="checkbox" :checked="test.is_published" :disabled="busy" @change="togglePublished($event.target.checked)">
+            <input
+              type="checkbox"
+              :checked="test.is_published"
+              :disabled="busy"
+              @change="togglePublished($event.target.checked)"
+            >
             {{ t('published') }}
           </label>
         </template>
@@ -286,118 +349,320 @@ function onFile(files) {
       <v-progress-circular indeterminate color="#0f5c66" size="36" />
     </div>
     <v-alert v-else-if="message && !test" type="error" variant="tonal">{{ message }}</v-alert>
+
     <template v-else-if="test">
       <v-alert v-if="message" type="error" variant="tonal" class="mb-4">{{ message }}</v-alert>
 
-      <v-alert type="info" variant="tonal" class="mb-4">{{ t('listeningFourSectionsNote') }}</v-alert>
-
       <div class="listening-builder">
-        <aside class="listening-builder__side">
-          <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('sections') }}</h2></div>
-              <v-list density="compact" color="#0f5c66">
-                <v-list-item
-                  v-for="section in test.sections"
-                  :key="section.id"
-                  :active="section.id === selectedSectionId"
-                  :title="section.title"
-                  :subtitle="section.audio ? section.audio.original_name : t('noAudioYet')"
-                  @click="selectedSectionId = section.id"
-                />
-              </v-list>
-            </section>
-        </aside>
+        <section class="admin-ui__panel listening-builder__sidebar">
+          <div class="admin-ui__panel-head">
+            <h2>{{ t('sections') }}</h2>
+            <p class="listening-builder__sidebar-meta">
+              {{ t('audioReadyCount', { ready: audioReadyCount, total: test.sections?.length || 0 }) }}
+              · {{ test.is_published ? t('published') : t('unpublished') }}
+            </p>
+          </div>
+
+          <div class="listening-builder__nav">
+            <button
+              v-for="(section, index) in test.sections"
+              :key="section.id"
+              type="button"
+              class="listening-builder__nav-item"
+              :class="{
+                'is-active': section.id === selectedSectionId,
+                'has-audio': !!section.audio,
+              }"
+              @click="selectSection(section)"
+            >
+              <span class="listening-builder__nav-index">{{ index + 1 }}</span>
+              <span class="listening-builder__nav-copy">
+                <span class="listening-builder__nav-title">{{ section.title }}</span>
+                <span class="listening-builder__nav-meta">
+                  {{ section.audio ? t('audioReady') : t('noAudioYet') }}
+                  · {{ section.groups?.length || 0 }} {{ t('groupsShort') }}
+                  · {{ sectionQuestionCount(section) }} {{ t('questionsShort') }}
+                </span>
+              </span>
+              <span
+                class="listening-builder__dot"
+                :class="section.audio ? 'is-ready' : 'is-missing'"
+                :title="section.audio ? t('audioReady') : t('noAudioYet')"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+        </section>
 
         <div class="listening-builder__main">
-          <template v-if="selectedSection">
-            <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('sectionAudio') }}</h2></div>
-                <v-text-field v-model="sectionTitleDraft" :label="t('sectionTitle')" class="mb-2" />
-                <v-btn class="mb-4" variant="tonal" :loading="busy" @click="saveSectionTitle">{{ t('save') }}</v-btn>
-                <div v-if="selectedSection.audio" class="mb-3">
-                  <div class="text-body-2 mb-2">{{ selectedSection.audio.original_name }}</div>
-                  <audio v-if="audioObjectUrl" :src="audioObjectUrl" controls class="w-100 mb-2" />
-                  <v-btn size="small" color="error" variant="text" :disabled="busy" @click="removeAudio">{{ t('removeAudio') }}</v-btn>
-                </div>
-                <v-file-input
-                  :model-value="audioFile ? [audioFile] : []"
-                  :label="t('uploadSectionAudio')"
-                  accept="audio/*"
-                  prepend-icon="mdi-microphone"
-                  show-size
-                  @update:model-value="onFile"
-                />
-                <v-btn color="primary" variant="tonal" :loading="busy" :disabled="!audioFile" @click="uploadAudio">{{ t('saveAudio') }}</v-btn>
-              </section>
+          <v-alert v-if="!selectedSection" type="info" variant="tonal">{{ t('selectSectionFirst') }}</v-alert>
 
-            <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('questionGroups') }}</h2></div>
-                <v-chip-group column>
-                  <v-chip
-                    v-for="group in selectedSection.groups"
-                    :key="group.id"
-                    :variant="group.id === selectedGroupId ? 'flat' : 'tonal'"
-                    :color="group.id === selectedGroupId ? 'primary' : undefined"
-                    @click="selectedGroupId = group.id"
+          <template v-else>
+            <section class="admin-ui__panel listening-builder__workspace-head">
+              <div>
+                <p class="listening-builder__eyebrow">{{ t('editingSection') }}</p>
+                <h2>{{ selectedSection.title }}</h2>
+                <p>
+                  {{ selectedSection.audio ? t('audioReady') : t('uploadAudioHint') }}
+                  · {{ selectedSection.groups?.length || 0 }} {{ t('groupsShort') }}
+                  · {{ t('questionsCount', { count: sectionQuestionCount(selectedSection) }) }}
+                </p>
+              </div>
+            </section>
+
+            <section class="admin-ui__panel">
+              <div class="admin-ui__panel-head">
+                <h2>{{ t('sectionAudio') }}</h2>
+              </div>
+
+              <div class="listening-builder__title-row">
+                <label class="admin-ui__field listening-builder__grow">
+                  <span>{{ t('sectionTitle') }}</span>
+                  <input v-model="sectionTitleDraft" type="text">
+                </label>
+                <button
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--solid"
+                  :disabled="busy"
+                  @click="saveSectionTitle"
+                >
+                  {{ t('save') }}
+                </button>
+              </div>
+
+              <div
+                class="listening-builder__audio-card"
+                :class="{ 'has-audio': !!selectedSection.audio }"
+              >
+                <div class="listening-builder__audio-head">
+                  <div>
+                    <p class="listening-builder__audio-kicker">{{ t('sectionAudio') }}</p>
+                    <strong v-if="selectedSection.audio">{{ selectedSection.audio.original_name }}</strong>
+                    <strong v-else>{{ t('noAudioYet') }}</strong>
+                  </div>
+                  <button
+                    v-if="selectedSection.audio"
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--danger"
+                    :disabled="busy || uploadingAudio"
+                    @click="removeAudio"
                   >
-                    {{ t(`questionTypes.${group.type}`) }}
-                  </v-chip>
-                </v-chip-group>
-                <v-row dense class="mt-2">
-                  <v-col cols="12" md="8"><v-select v-model="groupType" :items="groupTypes" :label="t('questionType')" /></v-col>
-                  <v-col cols="12" md="4" class="d-flex align-center">
-                    <v-btn color="primary" variant="tonal" block :loading="busy" @click="addGroup">{{ t('addGroup') }}</v-btn>
-                  </v-col>
-                </v-row>
-                <v-btn v-if="selectedGroup" class="mt-2" size="small" color="error" variant="text" :disabled="busy" @click="removeGroup(selectedGroup)">
-                  {{ t('deleteGroup') }}
-                </v-btn>
-              </section>
+                    {{ t('removeAudio') }}
+                  </button>
+                </div>
+
+                <audio
+                  v-if="audioObjectUrl"
+                  :src="audioObjectUrl"
+                  controls
+                  class="listening-builder__player"
+                />
+
+                <label class="admin-ui__field">
+                  <span>{{ t('uploadSectionAudio') }}</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    :disabled="uploadingAudio"
+                    @change="onFile"
+                  >
+                </label>
+
+                <div v-if="uploadingAudio" class="listening-builder__upload-progress" aria-live="polite">
+                  <div class="listening-builder__upload-meta">
+                    <span>{{ t('uploadingAudio') }}</span>
+                    <strong>{{ uploadProgress }}%</strong>
+                  </div>
+                  <v-progress-linear
+                    :model-value="uploadProgress"
+                    color="#0f5c66"
+                    height="10"
+                    rounded
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--primary"
+                  :disabled="!audioFile || uploadingAudio"
+                  @click="uploadAudio"
+                >
+                  <v-icon size="18">mdi-upload</v-icon>
+                  {{ uploadingAudio ? `${t('uploadingAudio')} ${uploadProgress}%` : t('saveAudio') }}
+                </button>
+              </div>
+            </section>
+
+            <section class="admin-ui__panel">
+              <div class="admin-ui__panel-head">
+                <h2>{{ t('questionGroups') }}</h2>
+              </div>
+
+              <div v-if="selectedSection.groups?.length" class="listening-builder__chips">
+                <button
+                  v-for="group in selectedSection.groups"
+                  :key="group.id"
+                  type="button"
+                  class="listening-builder__chip"
+                  :class="{ 'is-active': group.id === selectedGroupId }"
+                  @click="selectGroup(group)"
+                >
+                  {{ t(`questionTypes.${group.type}`) }}
+                  <em>{{ group.questions?.length || 0 }}</em>
+                </button>
+              </div>
+              <p v-else class="listening-builder__empty">{{ t('noQuestionGroupsYet') }}</p>
+
+              <div class="listening-builder__group-form">
+                <label class="admin-ui__field listening-builder__grow">
+                  <span>{{ t('questionType') }}</span>
+                  <select v-model="groupType">
+                    <option v-for="item in groupTypes" :key="item.value" :value="item.value">
+                      {{ item.title }}
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="admin-ui__btn admin-ui__btn--solid"
+                  :disabled="busy"
+                  @click="addGroup"
+                >
+                  {{ t('addGroup') }}
+                </button>
+              </div>
+
+              <button
+                v-if="selectedGroup"
+                type="button"
+                class="admin-ui__btn admin-ui__btn--danger"
+                :disabled="busy"
+                @click="removeGroup(selectedGroup)"
+              >
+                {{ t('deleteGroup') }}
+              </button>
+            </section>
 
             <template v-if="selectedGroup">
-              <section v-if="usesOptions" class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('options') }}</h2></div>
-                  <v-list density="compact" color="#0f5c66">
-                    <v-list-item v-for="option in selectedGroup.options" :key="option.id" :title="`${option.label ? `${option.label}. ` : ''}${option.content}`">
-                      <template #append>
-                        <v-btn icon="mdi-delete" size="x-small" variant="text" :disabled="busy" @click="removeOption(option)" />
-                      </template>
-                    </v-list-item>
-                  </v-list>
-                  <v-row dense>
-                    <v-col cols="12" sm="3"><v-text-field v-model="optionForm.label" :label="t('optionLabel')" density="comfortable" /></v-col>
-                    <v-col cols="12" sm="7"><v-text-field v-model="optionForm.content" :label="t('optionContent')" density="comfortable" /></v-col>
-                    <v-col cols="12" sm="2" class="d-flex align-center">
-                      <v-btn color="primary" variant="tonal" block :loading="busy" @click="addOption">{{ t('add') }}</v-btn>
-                    </v-col>
-                  </v-row>
-                </section>
-
-              <section class="admin-ui__panel"><div class="admin-ui__panel-head"><h2>{{ t('questions') }}</h2></div>
-                  <div v-for="question in selectedGroup.questions" :key="question.id" class="mb-3">
-                    <div class="d-flex align-center">
-                      <div>
-                        <strong>{{ question.position }}. {{ question.prompt }}</strong>
-                        <div class="text-caption text-medium-emphasis">
-                          {{ t('marks') }}: {{ question.marks }}
-                          <span v-if="question.correct_option_id"> · {{ t('correctOption') }} #{{ question.correct_option_id }}</span>
-                          <span v-if="question.accepted_answers?.length"> · {{ question.accepted_answers.map((a) => a.answer_text).join(' / ') }}</span>
-                        </div>
-                      </div>
-                      <v-spacer />
-                      <v-btn size="x-small" variant="text" color="error" :disabled="busy" @click="removeQuestion(question)">{{ t('delete') }}</v-btn>
+              <section v-if="usesOptions" class="admin-ui__panel">
+                <div class="admin-ui__panel-head">
+                  <h2>{{ t('options') }}</h2>
+                </div>
+                <div class="admin-ui__list">
+                  <div
+                    v-for="option in selectedGroup.options"
+                    :key="option.id"
+                    class="admin-ui__row"
+                  >
+                    <div class="admin-ui__row-main">
+                      <h3 class="admin-ui__row-title">
+                        {{ option.label ? `${option.label}. ` : '' }}{{ option.content }}
+                      </h3>
                     </div>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--danger"
+                      :disabled="busy"
+                      @click="removeOption(option)"
+                    >
+                      {{ t('delete') }}
+                    </button>
                   </div>
-                  <v-textarea v-model="questionForm.prompt" :label="t('questionPrompt')" rows="2" class="mb-2" />
-                  <v-text-field v-model.number="questionForm.marks" type="number" min="0.25" step="0.25" :label="t('marks')" class="mb-2" />
-                  <v-select v-if="usesOptions" v-model="questionForm.correct_option_id" :items="optionItems" :label="t('correctOption')" clearable class="mb-2" />
-                  <v-textarea
-                    v-if="usesAcceptedAnswers"
-                    v-model="questionForm.accepted_answers"
-                    :label="t('acceptedAnswers')"
-                    :hint="t('acceptedAnswersHint')"
-                    persistent-hint
-                    rows="3"
-                    class="mb-2"
-                  />
-                  <v-btn color="primary" :loading="busy" @click="addQuestion">{{ t('addQuestion') }}</v-btn>
-                </section>
+                </div>
+                <div class="listening-builder__option-form">
+                  <label class="admin-ui__field">
+                    <span>{{ t('optionLabel') }}</span>
+                    <input v-model="optionForm.label" type="text">
+                  </label>
+                  <label class="admin-ui__field listening-builder__grow">
+                    <span>{{ t('optionContent') }}</span>
+                    <input v-model="optionForm.content" type="text">
+                  </label>
+                  <button
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--solid"
+                    :disabled="busy"
+                    @click="addOption"
+                  >
+                    {{ t('add') }}
+                  </button>
+                </div>
+              </section>
+
+              <section class="admin-ui__panel">
+                <div class="admin-ui__panel-head">
+                  <h2>{{ t('questions') }}</h2>
+                </div>
+
+                <div
+                  v-for="question in selectedGroup.questions"
+                  :key="question.id"
+                  class="listening-builder__item"
+                >
+                  <div class="listening-builder__item-head">
+                    <div>
+                      <strong>{{ question.position }}. {{ question.prompt }}</strong>
+                      <p class="admin-ui__row-meta">
+                        {{ t('marks') }}: {{ question.marks }}
+                        <span v-if="question.correct_option_id">
+                          · {{ t('correctOption') }} #{{ question.correct_option_id }}
+                        </span>
+                        <span v-if="question.accepted_answers?.length">
+                          · {{ question.accepted_answers.map((a) => a.answer_text).join(' / ') }}
+                        </span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="admin-ui__btn admin-ui__btn--danger"
+                      :disabled="busy"
+                      @click="removeQuestion(question)"
+                    >
+                      {{ t('delete') }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="listening-builder__add">
+                  <label class="admin-ui__field">
+                    <span>{{ t('questionPrompt') }}</span>
+                    <textarea v-model="questionForm.prompt" rows="2" />
+                  </label>
+                  <label class="admin-ui__field">
+                    <span>{{ t('marks') }}</span>
+                    <input v-model.number="questionForm.marks" type="number" min="0.25" step="0.25">
+                  </label>
+                  <label v-if="usesOptions" class="admin-ui__field">
+                    <span>{{ t('correctOption') }}</span>
+                    <select v-model="questionForm.correct_option_id">
+                      <option :value="null">—</option>
+                      <option
+                        v-for="item in optionItems"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.title }}
+                      </option>
+                    </select>
+                  </label>
+                  <label v-if="usesAcceptedAnswers" class="admin-ui__field">
+                    <span>{{ t('acceptedAnswers') }}</span>
+                    <textarea
+                      v-model="questionForm.accepted_answers"
+                      rows="3"
+                      :placeholder="t('acceptedAnswersHint')"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    class="admin-ui__btn admin-ui__btn--solid"
+                    :disabled="busy"
+                    @click="addQuestion"
+                  >
+                    {{ t('addQuestion') }}
+                  </button>
+                </div>
+              </section>
             </template>
           </template>
         </div>
@@ -410,29 +675,324 @@ function onFile(files) {
 .listening-builder {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  gap: 0.9rem;
   align-items: start;
 }
 
-.listening-builder__side,
+.listening-builder__sidebar,
 .listening-builder__main {
   min-width: 0;
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
+  align-content: start;
 }
 
-.listening-builder audio {
+.listening-builder__sidebar-meta {
+  margin: 0.25rem 0 0;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.listening-builder__nav {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.listening-builder__nav-item {
+  display: grid;
+  grid-template-columns: 2.15rem minmax(0, 1fr) 0.7rem;
+  gap: 0.7rem;
+  align-items: center;
+  width: 100%;
+  min-height: 3.4rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.listening-builder__nav-item:hover {
+  border-color: rgba(15, 92, 102, 0.35);
+  background: var(--admin-paper);
+}
+
+.listening-builder__nav-item.is-active {
+  border-color: var(--admin-teal);
+  background: rgba(15, 92, 102, 0.06);
+  box-shadow: 0 0 0 3px rgba(15, 92, 102, 0.08);
+}
+
+.listening-builder__nav-index {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.6rem;
+  background: var(--admin-teal-soft);
+  color: var(--admin-teal);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.listening-builder__nav-item.is-active .listening-builder__nav-index,
+.listening-builder__nav-item.has-audio .listening-builder__nav-index {
+  background: var(--admin-teal);
+  color: #fff;
+}
+
+.listening-builder__nav-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.listening-builder__nav-title {
+  display: block;
+  overflow: hidden;
+  color: var(--admin-ink);
+  font-size: 0.95rem;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.listening-builder__nav-meta {
+  display: block;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.listening-builder__dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  justify-self: end;
+}
+
+.listening-builder__dot.is-ready {
+  background: #19a463;
+}
+
+.listening-builder__dot.is-missing {
+  background: #e2a336;
+}
+
+.listening-builder__workspace-head {
+  padding: 0.95rem 1rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.12), transparent 40%),
+    linear-gradient(135deg, #f7fbfb, #eef6f7);
+}
+
+.listening-builder__workspace-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.listening-builder__workspace-head p {
+  margin: 0.3rem 0 0;
+  color: var(--admin-muted);
+  font-size: 0.84rem;
+}
+
+.listening-builder__eyebrow {
+  margin: 0 0 0.2rem !important;
+  color: var(--admin-teal) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.listening-builder__title-row,
+.listening-builder__group-form,
+.listening-builder__option-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.listening-builder__grow {
+  min-width: 0;
+}
+
+.listening-builder__audio-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.95rem;
+  border-radius: 0.9rem;
+  border: 1px dashed rgba(15, 92, 102, 0.28);
+  background: linear-gradient(180deg, rgba(231, 244, 245, 0.7), #fff);
+}
+
+.listening-builder__audio-card.has-audio {
+  border-style: solid;
+  border-color: rgba(15, 92, 102, 0.18);
+}
+
+.listening-builder__audio-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.listening-builder__audio-kicker {
+  margin: 0 0 0.2rem;
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.listening-builder__player {
+  width: 100%;
   max-width: 100%;
+}
+
+.listening-builder__upload-progress {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.listening-builder__upload-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--admin-muted);
+  font-size: 0.84rem;
+}
+
+.listening-builder__upload-meta strong {
+  color: var(--admin-teal);
+  font-variant-numeric: tabular-nums;
+}
+
+.listening-builder__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.listening-builder__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.listening-builder__chip em {
+  font-style: normal;
+  min-width: 1.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--admin-paper);
+  color: var(--admin-teal);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.listening-builder__chip.is-active {
+  border-color: transparent;
+  background: var(--admin-teal);
+  color: #fff;
+}
+
+.listening-builder__chip.is-active em {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.listening-builder__empty {
+  margin: 0 0 0.85rem;
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
+.listening-builder__item {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--admin-paper);
+  margin-bottom: 0.55rem;
+}
+
+.listening-builder__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.listening-builder__item-head strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  line-height: 1.35;
+}
+
+.listening-builder__add {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--admin-line);
+}
+
+@media (min-width: 720px) {
+  .listening-builder__title-row,
+  .listening-builder__group-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .listening-builder__option-form {
+    grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+    align-items: end;
+  }
 }
 
 @media (min-width: 960px) {
   .listening-builder {
-    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
   }
 
-  .listening-builder__side {
+  .listening-builder__sidebar {
     position: sticky;
     top: 1rem;
+  }
+}
+
+@media (max-width: 719px) {
+  .listening-builder__nav-item,
+  .admin-ui__btn {
+    min-height: 44px;
   }
 }
 </style>
