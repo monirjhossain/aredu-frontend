@@ -109,13 +109,18 @@ function goPage(next) {
 }
 
 async function confirmBkash(order) {
+  const trx = String(trxByOrder.value[order.id] || '').trim()
+  if (!trx) {
+    ui.toastError(t('trxIdRequired'))
+    return
+  }
+
   confirmingId.value = order.id
   message.value = ''
   try {
-    const trx = String(trxByOrder.value[order.id] || '').trim()
     await http.post(
       `/admin/orders/${order.id}/confirm-bkash`,
-      trx ? { trx_id: trx } : {},
+      { trx_id: trx },
       { skipErrorToast: true, skipSuccessToast: true },
     )
     ui.success(t('bkashPaymentConfirmed'))
@@ -125,7 +130,10 @@ async function confirmBkash(order) {
       await openDetails(order)
     }
   } catch (error) {
-    message.value = apiError(error).message || t('requestFailed')
+    const err = apiError(error)
+    const trxError = Array.isArray(err.errors?.trx_id) ? err.errors.trx_id[0] : ''
+    const orderError = Array.isArray(err.errors?.order) ? err.errors.order[0] : ''
+    ui.toastError(trxError || orderError || err.message || t('requestFailed'))
   } finally {
     confirmingId.value = null
   }
@@ -422,13 +430,14 @@ watch(
                         v-model="trxByOrder[order.id]"
                         type="text"
                         class="admin-orders__trx"
-                        :placeholder="t('trxIdOptional')"
-                        :aria-label="t('trxIdOptional')"
+                        :placeholder="t('trxIdRequired')"
+                        :aria-label="t('trxIdRequired')"
+                        required
                       >
                       <button
                         type="button"
                         class="admin-ui__btn admin-ui__btn--solid"
-                        :disabled="confirmingId === order.id"
+                        :disabled="confirmingId === order.id || !String(trxByOrder[order.id] || '').trim()"
                         @click="confirmBkash(order)"
                       >
                         {{ t('activatePackage') }}
@@ -490,8 +499,8 @@ watch(
                   <strong>{{ money(order) }}</strong> · {{ when(order.created_at) }}
                 </p>
                 <label v-if="order.status === 'pending'" class="admin-ui__field mt-2">
-                  <span>{{ t('trxIdOptional') }}</span>
-                  <input v-model="trxByOrder[order.id]" type="text" :placeholder="t('trxIdOptional')">
+                  <span>{{ t('trxIdRequired') }}</span>
+                  <input v-model="trxByOrder[order.id]" type="text" :placeholder="t('trxIdRequired')" required>
                 </label>
               </div>
             </div>
@@ -507,7 +516,7 @@ watch(
                 v-if="order.status === 'pending'"
                 type="button"
                 class="admin-ui__btn admin-ui__btn--solid"
-                :disabled="confirmingId === order.id"
+                :disabled="confirmingId === order.id || !String(trxByOrder[order.id] || '').trim()"
                 @click="confirmBkash(order)"
               >
                 {{ t('activatePackage') }}
@@ -624,12 +633,13 @@ watch(
               v-model="trxByOrder[detailOrder.id]"
               type="text"
               class="admin-orders__trx"
-              :placeholder="t('trxIdOptional')"
+              :placeholder="t('trxIdRequired')"
+              required
             >
             <button
               type="button"
               class="admin-ui__btn admin-ui__btn--solid"
-              :disabled="confirmingId === detailOrder.id"
+              :disabled="confirmingId === detailOrder.id || !String(trxByOrder[detailOrder.id] || '').trim()"
               @click="confirmBkash(detailOrder)"
             >
               {{ t('activatePackage') }}

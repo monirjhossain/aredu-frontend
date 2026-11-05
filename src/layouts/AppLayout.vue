@@ -53,6 +53,34 @@ const redirectQuery = computed(() => (
     : undefined
 ))
 
+const showPracticeNav = computed(() => (
+  auth.hasPermission('mock_tests.manage')
+  || auth.hasPermission('writing.manage')
+  || auth.hasPermission('writing.evaluate')
+  || auth.hasPermission('speaking.manage')
+  || auth.hasPermission('speaking.evaluate')
+))
+
+const practiceNavOpen = computed(() => {
+  const name = String(route.name || '')
+  return name.startsWith('admin-reading')
+    || name.startsWith('admin-listening')
+    || name.startsWith('admin-writing')
+    || name.startsWith('admin-speaking')
+    || name.startsWith('admin-full-mock')
+    || name.startsWith('admin-band')
+    || name.startsWith('teacher-writing')
+    || name.startsWith('teacher-speaking')
+})
+
+const adminListOpened = ref(practiceNavOpen.value ? ['practice'] : [])
+
+watch(practiceNavOpen, (open) => {
+  if (open && !adminListOpened.value.includes('practice')) {
+    adminListOpened.value = [...adminListOpened.value, 'practice']
+  }
+})
+
 const studentLinks = computed(() => [
   { name: 'student-dashboard', label: t('studentDashboard'), icon: 'mdi-view-dashboard-outline' },
   { name: 'skill-analytics', label: t('skillAnalytics'), icon: 'mdi-chart-timeline-variant' },
@@ -512,7 +540,7 @@ const dashboardLabel = computed(() => {
         <div v-if="roleLabel" class="text-caption">{{ roleLabel }}</div>
       </div>
       <v-divider v-if="auth.isAuthenticated" />
-      <v-list nav @click="closeIfMobile">
+      <v-list v-model:opened="adminListOpened" nav @click="closeIfMobile">
         <template v-if="!auth.isAuthenticated">
           <v-list-item :title="t('courses')" to="/courses" prepend-icon="mdi-school" />
           <v-list-item :title="t('login')" to="/login" prepend-icon="mdi-login" />
@@ -586,54 +614,69 @@ const dashboardLabel = computed(() => {
             to="/admin/reports"
             prepend-icon="mdi-chart-box"
           />
-          <v-list-item
-            v-if="auth.hasPermission('mock_tests.manage')"
-            :title="t('manageReadingTests')"
-            to="/admin/reading-tests"
-            prepend-icon="mdi-book-open-page-variant"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('mock_tests.manage')"
-            :title="t('manageFullMocks')"
-            to="/admin/full-mocks"
-            prepend-icon="mdi-clipboard-text-clock-outline"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('mock_tests.manage')"
-            :title="t('manageListeningTests')"
-            to="/admin/listening-tests"
-            prepend-icon="mdi-headphones"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('mock_tests.manage')"
-            :title="t('bandConversions')"
-            to="/admin/band-conversions"
-            prepend-icon="mdi-table"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('writing.manage')"
-            :title="t('manageWritingTasks')"
-            to="/admin/writing-tasks"
-            prepend-icon="mdi-pencil"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('writing.evaluate')"
-            :title="t('teacherWritingQueue')"
-            to="/teacher/writing"
-            prepend-icon="mdi-clipboard-check-outline"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('speaking.manage')"
-            :title="t('manageSpeakingTasks')"
-            to="/admin/speaking-tasks"
-            prepend-icon="mdi-microphone"
-          />
-          <v-list-item
-            v-if="auth.hasPermission('speaking.evaluate')"
-            :title="t('teacherSpeakingQueue')"
-            to="/teacher/speaking"
-            prepend-icon="mdi-microphone-message"
-          />
+          <v-list-group
+            v-if="showPracticeNav"
+            value="practice"
+            fluid
+            prepend-icon="mdi-head-cog-outline"
+          >
+            <template #activator="{ props }">
+              <v-list-item
+                v-bind="props"
+                :title="t('adminPracticeMenu')"
+                :active="practiceNavOpen"
+              />
+            </template>
+
+            <v-list-item
+              v-if="auth.hasPermission('mock_tests.manage')"
+              :title="t('manageReadingTests')"
+              to="/admin/reading-tests"
+              prepend-icon="mdi-book-open-page-variant"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('mock_tests.manage')"
+              :title="t('manageListeningTests')"
+              to="/admin/listening-tests"
+              prepend-icon="mdi-headphones"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('writing.manage')"
+              :title="t('manageWritingTasks')"
+              to="/admin/writing-tasks"
+              prepend-icon="mdi-pencil"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('speaking.manage')"
+              :title="t('manageSpeakingTasks')"
+              to="/admin/speaking-tasks"
+              prepend-icon="mdi-microphone"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('mock_tests.manage')"
+              :title="t('manageFullMocks')"
+              to="/admin/full-mocks"
+              prepend-icon="mdi-clipboard-text-clock-outline"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('mock_tests.manage')"
+              :title="t('bandConversions')"
+              to="/admin/band-conversions"
+              prepend-icon="mdi-table"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('writing.evaluate')"
+              :title="t('teacherWritingQueue')"
+              to="/teacher/writing"
+              prepend-icon="mdi-clipboard-check-outline"
+            />
+            <v-list-item
+              v-if="auth.hasPermission('speaking.evaluate')"
+              :title="t('teacherSpeakingQueue')"
+              to="/teacher/speaking"
+              prepend-icon="mdi-microphone-message"
+            />
+          </v-list-group>
           <v-list-item
             v-if="auth.hasPermission('users.manage')"
             :title="t('users')"
@@ -837,6 +880,10 @@ const dashboardLabel = computed(() => {
 
 .admin-drawer :deep(.v-list) {
   padding-inline: 0.35rem;
+}
+
+.admin-drawer :deep(.v-list-group__items .v-list-item) {
+  padding-inline-start: 1.1rem !important;
 }
 
 .admin-drawer :deep(.v-list-item) {
