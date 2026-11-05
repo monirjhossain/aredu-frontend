@@ -23,6 +23,7 @@ import CourseFormPage from '../pages/admin/CourseFormPage.vue'
 import CourseContentPage from '../pages/admin/CourseContentPage.vue'
 import CourseCatalogPage from '../pages/courses/CourseCatalogPage.vue'
 import CourseDetailPage from '../pages/courses/CourseDetailPage.vue'
+import FreeCoursesPage from '../pages/courses/FreeCoursesPage.vue'
 import LessonPlayerPage from '../pages/courses/LessonPlayerPage.vue'
 import OrdersPage from '../pages/orders/OrdersPage.vue'
 import OrderDetailPage from '../pages/orders/OrderDetailPage.vue'
@@ -72,6 +73,12 @@ const router = createRouter({
       children: [
         { path: '', name: 'home', component: HomePage, meta: { titleKey: 'home', fullBleed: true } },
         { path: 'courses', name: 'courses', component: CourseCatalogPage, meta: { titleKey: 'courses', fullBleed: true } },
+        {
+          path: 'free-courses',
+          name: 'free-courses',
+          component: FreeCoursesPage,
+          meta: { titleKey: 'navFreeCourses', fullBleed: true, freeOnly: true },
+        },
         { path: 'courses/:slug', name: 'course-detail', component: CourseDetailPage, meta: { titleKey: 'courseDetails', fullBleed: true } },
         {
           path: 'courses/:slug/lessons/:lessonId',

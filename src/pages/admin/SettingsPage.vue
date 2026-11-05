@@ -37,6 +37,13 @@ const settings = reactive({
     notify_on_mock_result: true,
     notify_on_new_lesson: true,
   },
+  entry_popup: {
+    enabled: false,
+    title: '',
+    body: '',
+    cta_label: '',
+    cta_url: '/courses',
+  },
 })
 
 const logs = ref([])
@@ -88,6 +95,13 @@ function applySettings(payload) {
     notify_on_mock_result: !!payload.notification_preferences?.notify_on_mock_result,
     notify_on_new_lesson: !!payload.notification_preferences?.notify_on_new_lesson,
   }
+  settings.entry_popup = {
+    enabled: !!payload.entry_popup?.enabled,
+    title: payload.entry_popup?.title || '',
+    body: payload.entry_popup?.body || '',
+    cta_label: payload.entry_popup?.cta_label || '',
+    cta_url: payload.entry_popup?.cta_url || '/courses',
+  }
 }
 
 function addLandingVideo() {
@@ -116,6 +130,11 @@ async function saveSettings() {
       bkash_merchant_number: settings.bkash_merchant_number || null,
       bkash_payment_note: settings.bkash_payment_note || null,
       ...settings.notification_preferences,
+      site_popup_enabled: !!settings.entry_popup.enabled,
+      site_popup_title: settings.entry_popup.title || null,
+      site_popup_body: settings.entry_popup.body || null,
+      site_popup_cta_label: settings.entry_popup.cta_label || null,
+      site_popup_cta_url: settings.entry_popup.cta_url || null,
     }, { skipErrorToast: true, skipSuccessToast: true })
     applySettings(data.data || {})
     ui.success(t('settingsSaved'))
@@ -342,6 +361,54 @@ function applyLogFilter() {
                   </button>
                 </div>
               </article>
+            </div>
+          </section>
+
+          <section class="admin-ui__panel">
+            <div class="admin-ui__panel-head">
+              <div>
+                <h2>{{ t('sitePopupSettings') }}</h2>
+                <p>{{ t('sitePopupSettingsLead') }}</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="settings.entry_popup.enabled"
+              :label="t('sitePopupEnabled')"
+              color="#0f5c66"
+              hide-details
+              density="comfortable"
+              class="mb-3"
+            />
+            <v-text-field
+              v-model="settings.entry_popup.title"
+              :label="t('sitePopupTitle')"
+              :error-messages="fieldErrors.site_popup_title"
+              :disabled="!settings.entry_popup.enabled"
+              class="mb-2"
+            />
+            <v-textarea
+              v-model="settings.entry_popup.body"
+              :label="t('sitePopupBody')"
+              :error-messages="fieldErrors.site_popup_body"
+              :disabled="!settings.entry_popup.enabled"
+              rows="3"
+              class="mb-2"
+            />
+            <div class="admin-ui__form-grid admin-ui__form-grid--2">
+              <v-text-field
+                v-model="settings.entry_popup.cta_label"
+                :label="t('sitePopupCtaLabel')"
+                :error-messages="fieldErrors.site_popup_cta_label"
+                :disabled="!settings.entry_popup.enabled"
+              />
+              <v-text-field
+                v-model="settings.entry_popup.cta_url"
+                :label="t('sitePopupCtaUrl')"
+                :hint="t('sitePopupCtaUrlHint')"
+                persistent-hint
+                :error-messages="fieldErrors.site_popup_cta_url"
+                :disabled="!settings.entry_popup.enabled"
+              />
             </div>
           </section>
 

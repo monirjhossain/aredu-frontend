@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import CourseCard from '../../components/marketing/CourseCard.vue'
 import MarketingFooter from '../../components/marketing/MarketingFooter.vue'
 import { http } from '../../services/http'
+import { cacheGet, cacheSet } from '../../services/publicCache'
 import { apiError } from '../../utils/apiError'
 import { useAuthStore } from '../../stores/auth'
 import { useLocaleStore } from '../../stores/locale'
@@ -106,9 +107,14 @@ function lessonTime(seconds) {
 }
 
 async function loadBranding() {
+  const cachedLanding = cacheGet('landing')
+  if (cachedLanding?.branding) {
+    branding.value = { ...branding.value, ...cachedLanding.branding }
+    return
+  }
   try {
-    const { data } = await http.get('/landing', { skipErrorToast: true })
-    branding.value = { ...branding.value, ...((data.data || {}).branding || {}) }
+    const { data } = await http.get('/settings/public', { skipErrorToast: true, skipLoading: true })
+    branding.value = { ...branding.value, ...(data.data || {}) }
   } catch {
     // Footer still renders with defaults.
   }
@@ -119,33 +125,38 @@ async function loadRelated(current) {
   if (!current?.id) return
 
   const pick = (rows) => (rows || []).filter((item) => item.id !== current.id).slice(0, 8)
+  const fromLanding = pick(cacheGet('landing')?.courses || [])
+  if (fromLanding.length) relatedCourses.value = fromLanding.slice(0, 8)
 
   try {
-    if (current.category?.id) {
-      const { data } = await http.get('/courses', {
-        params: {
-          exam_type: current.exam_type || undefined,
-          category_id: current.category.id,
-          page: 1,
-        },
-        skipErrorToast: true,
-      })
-      relatedCourses.value = pick(data.data)
+    const params = {
+      exam_type: current.exam_type || undefined,
+      category_id: current.category?.id || undefined,
+      page: 1,
     }
+    const { data } = await http.get('/courses', {
+      params,
+      skipErrorToast: true,
+      skipLoading: true,
+    })
+    let rows = pick(data.data)
 
-    if (relatedCourses.value.length < 3 && current.exam_type) {
-      const { data } = await http.get('/courses', {
+    if (rows.length < 3 && current.exam_type && current.category?.id) {
+      const { data: fallback } = await http.get('/courses', {
         params: { exam_type: current.exam_type, page: 1 },
         skipErrorToast: true,
+        skipLoading: true,
       })
-      const merged = [...relatedCourses.value]
-      for (const item of pick(data.data)) {
+      const merged = [...rows]
+      for (const item of pick(fallback.data)) {
         if (!merged.some((row) => row.id === item.id)) merged.push(item)
       }
-      relatedCourses.value = merged.slice(0, 8)
+      rows = merged
     }
+
+    relatedCourses.value = rows.slice(0, 8)
   } catch {
-    relatedCourses.value = []
+    if (!relatedCourses.value.length) relatedCourses.value = []
   }
 }
 
@@ -157,21 +168,34 @@ function scrollRelated(dir) {
 }
 
 async function load() {
-  loading.value = true
+  const slug = route.params.slug
+  const cacheKey = `course:${slug}`
+  const cached = cacheGet(cacheKey)
+  loading.value = !cached
   message.value = ''
   purchaseNote.value = ''
-  course.value = null
   relatedCourses.value = []
-  openSections.value = []
+  if (cached) {
+    course.value = cached
+    openSections.value = cached.sections?.[0]?.id ? [cached.sections[0].id] : []
+    loadRelated(cached)
+  } else {
+    course.value = null
+    openSections.value = []
+  }
+
   try {
-    const { data } = await http.get(`/courses/${route.params.slug}`, { skipErrorToast: true })
+    const { data } = await http.get(`/courses/${slug}`, { skipErrorToast: true, skipLoading: true })
     course.value = data.data
+    cacheSet(cacheKey, course.value, 60_000)
     if (course.value?.sections?.length) {
       openSections.value = [course.value.sections[0].id]
     }
-    await loadRelated(course.value)
+    loadRelated(course.value)
   } catch (error) {
-    message.value = apiError(error).message || t('requestFailed')
+    if (!course.value) {
+      message.value = apiError(error).message || t('requestFailed')
+    }
   } finally {
     loading.value = false
   }
@@ -224,7 +248,10 @@ onMounted(() => {
   loadBranding()
   load()
 })
-watch(() => route.params.slug, load)
+watch(() => route.params.slug, () => {
+  loadBranding()
+  load()
+})
 </script>
 
 <template>

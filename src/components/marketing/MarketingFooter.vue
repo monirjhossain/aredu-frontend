@@ -33,7 +33,8 @@ const logoSrc = computed(() => props.logoUrl || `${import.meta.env.BASE_URL}imag
       <nav class="mkt-footer__col" :aria-label="t('footerExplore')">
         <h2>{{ t('footerExplore') }}</h2>
         <router-link :to="{ name: 'home' }">{{ t('home') }}</router-link>
-        <router-link :to="{ name: 'courses' }">{{ t('courses') }}</router-link>
+        <router-link :to="{ name: 'free-courses' }">{{ t('navFreeCourses') }}</router-link>
+        <router-link :to="{ name: 'courses' }">{{ t('allCourses') }}</router-link>
         <router-link v-if="!auth.isAuthenticated" :to="{ name: 'login' }">{{ t('login') }}</router-link>
         <router-link v-if="!auth.isAuthenticated" :to="{ name: 'register' }">{{ t('register') }}</router-link>
         <router-link

@@ -5,6 +5,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import AppToasts from '../components/AppToasts.vue'
 import NotificationBell from '../components/NotificationBell.vue'
+import SearchSparkIcon from '../components/SearchSparkIcon.vue'
+import SiteEntryPopup from '../components/SiteEntryPopup.vue'
+import TypedSearchPlaceholder from '../components/TypedSearchPlaceholder.vue'
 import { useAuthStore } from '../stores/auth'
 import { useLocaleStore } from '../stores/locale'
 import { useUiStore } from '../stores/ui'
@@ -19,7 +22,14 @@ const auth = useAuthStore()
 const drawer = ref(false)
 const studentMenuOpen = ref(false)
 const studentSideCollapsed = ref(false)
+const landingMenuOpen = ref(false)
+const navSearch = ref('')
+const navSearchFocused = ref(false)
+const announceDismissed = ref(false)
 const arLogo = `${import.meta.env.BASE_URL}images/ar-logo.png`
+const navSearchLabel = computed(() => t('navSearchCourses'))
+const showNavTypedPlaceholder = computed(() => !String(navSearch.value || '').trim())
+const showNavTypedCaret = computed(() => showNavTypedPlaceholder.value && !navSearchFocused.value)
 
 const roleLabel = computed(() => {
   const slug = auth.roles[0]
@@ -34,7 +44,7 @@ const isStudentShell = computed(() => auth.isAuthenticated && auth.isStudent && 
 const useTopChrome = computed(() => isLanding.value || isStudentShell.value)
 const showStudentSide = computed(() => isStudentShell.value && !isLanding.value)
 const showAdminDrawer = computed(() => !useTopChrome.value)
-const landingMenuOpen = ref(false)
+const showAnnounce = computed(() => !showStudentSide.value && !announceDismissed.value)
 const redirectQuery = computed(() => (
   typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
     ? { redirect: route.query.redirect }
@@ -55,7 +65,10 @@ const studentLinks = computed(() => [
 
 watch(mdAndUp, (desktop) => {
   drawer.value = desktop && showAdminDrawer.value
-  if (desktop) studentMenuOpen.value = false
+  if (desktop) {
+    studentMenuOpen.value = false
+    landingMenuOpen.value = false
+  }
 }, { immediate: true })
 
 watch(showAdminDrawer, (show) => {
@@ -101,6 +114,31 @@ function studentNavActive(name) {
   }
   return (aliases[name] || []).includes(route.name)
 }
+
+function submitNavSearch() {
+  const q = navSearch.value.trim()
+  landingMenuOpen.value = false
+  router.push({
+    name: 'courses',
+    query: q ? { search: q } : undefined,
+  })
+}
+
+function toggleLocale() {
+  localeStore.setLocale(localeStore.locale === 'bn' ? 'en' : 'bn')
+}
+
+const dashboardTarget = computed(() => {
+  if (auth.isAuthenticated && auth.isAdmin) return { name: 'admin-dashboard' }
+  if (auth.isAuthenticated && auth.isStudent) return { name: 'student-dashboard' }
+  return { name: 'login', query: redirectQuery.value }
+})
+
+const dashboardLabel = computed(() => {
+  if (auth.isAuthenticated && auth.isAdmin) return t('adminDashboard')
+  if (auth.isAuthenticated && auth.isStudent) return t('dashboard')
+  return t('login')
+})
 </script>
 
 <template>
@@ -112,8 +150,8 @@ function studentNavActive(name) {
       indeterminate
     />
 
-    <header v-if="useTopChrome" class="site-nav" :class="{ 'site-nav--student-app': showStudentSide }">
-      <div class="site-nav__inner" :class="{ 'site-nav__inner--wide': showStudentSide }">
+    <header v-if="useTopChrome" class="site-nav" :class="{ 'site-nav--student-app': showStudentSide, 'is-menu-open': landingMenuOpen && !showStudentSide }">
+      <div class="site-nav__inner">
         <router-link
           v-if="!showStudentSide"
           class="site-nav__brand"
@@ -139,41 +177,64 @@ function studentNavActive(name) {
           <v-icon icon="mdi-menu" size="22" />
         </button>
 
-        <nav v-if="!showStudentSide" class="site-nav__links" aria-label="Primary">
-          <router-link
-            class="site-nav__link"
-            active-class=""
-            exact-active-class=""
-            :class="{ 'is-active': navActive('courses') || navActive('course-detail') }"
-            :to="{ name: 'courses' }"
-          >
-            {{ t('courses') }}
+        <form
+          v-if="!showStudentSide"
+          class="site-nav__search"
+          role="search"
+          @submit.prevent="submitNavSearch"
+        >
+          <SearchSparkIcon class="site-nav__search-icon" :size="20" />
+          <span class="site-nav__search-field">
+            <TypedSearchPlaceholder
+              :text="navSearchLabel"
+              :visible="showNavTypedPlaceholder"
+              :show-caret="showNavTypedCaret"
+            />
+            <input
+              v-model="navSearch"
+              type="search"
+              :aria-label="navSearchLabel"
+              autocomplete="off"
+              @focus="navSearchFocused = true"
+              @blur="navSearchFocused = false"
+            >
+          </span>
+        </form>
+
+        <nav v-if="!showStudentSide" class="site-nav__mid" aria-label="Primary">
+          <router-link class="site-nav__promo" :to="{ name: 'free-courses' }">
+            <v-icon icon="mdi-gift-outline" size="18" />
+            <span>{{ t('navFreeCourses') }}</span>
+          </router-link>
+          <router-link class="site-nav__text-link" :to="{ name: 'courses' }">
+            {{ t('allCourses') }}
           </router-link>
           <router-link
-            v-if="auth.isAuthenticated && auth.isAdmin"
-            class="site-nav__link"
-            active-class=""
-            exact-active-class=""
-            :class="{ 'is-active': String(route.name || '').startsWith('admin-') }"
-            :to="{ name: 'admin-dashboard' }"
+            class="site-nav__text-link"
+            :to="{ name: 'home', hash: '#landing-mocks' }"
           >
-            {{ t('adminDashboard') }}
-          </router-link>
-          <router-link
-            v-else-if="auth.isAuthenticated && auth.isStudent"
-            class="site-nav__link"
-            active-class=""
-            exact-active-class=""
-            :class="{ 'is-active': navActive('student-dashboard') || studentNavActive('my-courses') }"
-            :to="{ name: 'student-dashboard' }"
-          >
-            {{ t('studentDashboard') }}
+            <span class="site-nav__new">{{ t('landingNewBadge') }}</span>
+            {{ t('navMocks') }}
           </router-link>
         </nav>
         <div v-else class="site-nav__spacer" />
 
         <div class="site-nav__actions">
-          <div class="site-nav__locale" role="group" :aria-label="t('language')">
+          <NotificationBell v-if="auth.isAuthenticated" class="site-nav__bell" />
+
+          <button
+            v-if="!showStudentSide"
+            type="button"
+            class="site-nav__lang"
+            :aria-label="t('language')"
+            @click="toggleLocale"
+          >
+            <span class="site-nav__lang-flag" aria-hidden="true">
+              {{ localeStore.locale === 'bn' ? '🇧🇩' : '🇬🇧' }}
+            </span>
+            <span>{{ localeStore.locale === 'bn' ? 'BN' : 'EN' }}</span>
+          </button>
+          <div v-else class="site-nav__locale" role="group" :aria-label="t('language')">
             <button
               type="button"
               class="site-nav__locale-btn"
@@ -191,7 +252,15 @@ function studentNavActive(name) {
               বাং
             </button>
           </div>
-          <NotificationBell v-if="auth.isAuthenticated" />
+
+          <router-link
+            v-if="!showStudentSide"
+            class="site-nav__dash"
+            :to="dashboardTarget"
+          >
+            <span>{{ dashboardLabel }}</span>
+            <v-icon icon="mdi-view-grid-outline" size="18" />
+          </router-link>
 
           <v-menu v-if="auth.isAuthenticated" location="bottom end" offset="8">
             <template #activator="{ props }">
@@ -201,7 +270,7 @@ function studentNavActive(name) {
                 class="site-nav__account"
                 :aria-label="t('account')"
               >
-                <span class="site-nav__user">
+                <span v-if="showStudentSide" class="site-nav__user">
                   {{ auth.user?.name }}
                   <small v-if="roleLabel">{{ roleLabel }}</small>
                 </span>
@@ -228,22 +297,13 @@ function studentNavActive(name) {
               />
             </v-list>
           </v-menu>
-          <template v-else>
-            <router-link
-              v-if="route.name !== 'login'"
-              class="site-nav__cta"
-              :to="{ name: 'login', query: redirectQuery }"
-            >
-              {{ t('login') }}
-            </router-link>
-            <router-link
-              v-else
-              class="site-nav__cta"
-              :to="{ name: 'register', query: redirectQuery }"
-            >
-              {{ t('register') }}
-            </router-link>
-          </template>
+          <router-link
+            v-else-if="showStudentSide || route.name === 'login'"
+            class="site-nav__cta"
+            :to="{ name: route.name === 'login' ? 'register' : 'login', query: redirectQuery }"
+          >
+            {{ route.name === 'login' ? t('register') : t('login') }}
+          </router-link>
 
           <button
             v-if="!showStudentSide"
@@ -259,7 +319,31 @@ function studentNavActive(name) {
       </div>
 
       <div v-if="landingMenuOpen && !showStudentSide" class="site-nav__drawer">
-        <router-link :to="{ name: 'courses' }" @click="landingMenuOpen = false">{{ t('courses') }}</router-link>
+        <form class="site-nav__drawer-search" @submit.prevent="submitNavSearch">
+          <span class="site-nav__drawer-search-field">
+            <TypedSearchPlaceholder
+              :text="navSearchLabel"
+              :visible="showNavTypedPlaceholder"
+              :show-caret="showNavTypedCaret"
+              pad-left="0.85rem"
+              pad-right="0.85rem"
+            />
+            <input
+              v-model="navSearch"
+              type="search"
+              :aria-label="navSearchLabel"
+              autocomplete="off"
+              @focus="navSearchFocused = true"
+              @blur="navSearchFocused = false"
+            >
+          </span>
+          <button type="submit">{{ t('search') }}</button>
+        </form>
+        <router-link :to="{ name: 'free-courses' }" @click="landingMenuOpen = false">{{ t('navFreeCourses') }}</router-link>
+        <router-link :to="{ name: 'courses' }" @click="landingMenuOpen = false">{{ t('allCourses') }}</router-link>
+        <router-link :to="{ name: 'home', hash: '#landing-mocks' }" @click="landingMenuOpen = false">
+          {{ t('navMocks') }}
+        </router-link>
         <router-link
           v-if="auth.isAuthenticated && auth.isAdmin"
           :to="{ name: 'admin-dashboard' }"
@@ -292,6 +376,24 @@ function studentNavActive(name) {
           {{ t('register') }}
         </router-link>
         <button v-if="auth.isAuthenticated" type="button" @click="logout">{{ t('logout') }}</button>
+      </div>
+
+      <div v-if="showAnnounce" class="site-nav__announce-wrap">
+        <router-link class="site-nav__announce" :to="{ name: 'courses' }">
+          <span class="site-nav__announce-shine" aria-hidden="true" />
+          <span class="site-nav__announce-new">{{ t('landingNewBadge') }}</span>
+          <v-icon class="site-nav__announce-play" icon="mdi-play-circle-outline" size="18" />
+          <span class="site-nav__announce-text">{{ t('landingAnnounce') }}</span>
+          <v-icon class="site-nav__announce-arrow" icon="mdi-arrow-right" size="16" />
+        </router-link>
+        <button
+          type="button"
+          class="site-nav__announce-close"
+          :aria-label="t('close')"
+          @click="announceDismissed = true"
+        >
+          <v-icon icon="mdi-close" size="16" />
+        </button>
       </div>
     </header>
 
@@ -609,6 +711,7 @@ function studentNavActive(name) {
       </v-container>
     </v-main>
 
+    <SiteEntryPopup v-if="useTopChrome && !showStudentSide" />
     <AppToasts />
   </v-app>
 </template>

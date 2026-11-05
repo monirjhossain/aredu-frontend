@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import CourseCard from '../components/marketing/CourseCard.vue'
 import MarketingFooter from '../components/marketing/MarketingFooter.vue'
 import { http } from '../services/http'
+import { cacheGet, cacheSet } from '../services/publicCache'
 import { apiError } from '../utils/apiError'
 
 const { t } = useI18n()
@@ -82,10 +83,17 @@ const faqs = computed(() => [
   { q: 'landingFaq5Q', a: 'landingFaq5A' },
 ])
 
-onMounted(async () => {
+onMounted(() => {
   startStoryRotation()
   revealTimer = window.setTimeout(setupReveal, 40)
-  await loadLanding()
+  const cached = cacheGet('landing')
+  if (cached) {
+    branding.value = { ...branding.value, ...(cached.branding || {}) }
+    courses.value = cached.courses || []
+    loading.value = false
+    revealTimer = window.setTimeout(setupReveal, 40)
+  }
+  loadLanding({ silent: Boolean(cached) })
 })
 
 onBeforeUnmount(() => {
@@ -94,16 +102,24 @@ onBeforeUnmount(() => {
   observer?.disconnect()
 })
 
-async function loadLanding() {
-  loading.value = true
-  message.value = ''
+async function loadLanding({ silent = false } = {}) {
+  if (!silent) {
+    loading.value = true
+    message.value = ''
+  }
   try {
-    const { data } = await http.get('/landing', { skipErrorToast: true })
+    const { data } = await http.get('/landing', { skipErrorToast: true, skipLoading: true })
     const payload = data.data || {}
     branding.value = { ...branding.value, ...(payload.branding || {}) }
     courses.value = payload.courses || []
+    cacheSet('landing', {
+      branding: branding.value,
+      courses: courses.value,
+    }, 90_000)
   } catch (error) {
-    message.value = apiError(error).message || t('requestFailed')
+    if (!silent || !courses.value.length) {
+      message.value = apiError(error).message || t('requestFailed')
+    }
   } finally {
     loading.value = false
     revealTimer = window.setTimeout(setupReveal, 60)

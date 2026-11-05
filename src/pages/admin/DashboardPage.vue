@@ -284,7 +284,7 @@ function buildDonut(items) {
           class="admin-dash__quick-link"
           :to="link.to"
         >
-          <v-icon size="18">{{ link.icon }}</v-icon>
+          <v-icon size="16">{{ link.icon }}</v-icon>
           <span>{{ link.label }}</span>
         </router-link>
       </div>
@@ -635,21 +635,22 @@ function buildDonut(items) {
 .admin-dash__hero {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem 1.5rem;
-  margin-bottom: 1.25rem;
-  padding: 1.25rem 1.35rem;
-  border-radius: 1rem;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.85rem;
   background:
     radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.18), transparent 42%),
     linear-gradient(135deg, #0f5c66 0%, #14919b 55%, #0a3d44 100%);
   color: #f7fbfb;
-  box-shadow: 0 16px 40px rgba(15, 92, 102, 0.22);
+  box-shadow: 0 10px 24px rgba(15, 92, 102, 0.18);
 }
 
 .admin-dash__eyebrow {
-  margin: 0 0 0.35rem;
-  font-size: 0.75rem;
+  margin: 0 0 0.15rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -658,36 +659,40 @@ function buildDonut(items) {
 
 .admin-dash__title {
   margin: 0;
-  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+  font-size: clamp(1.05rem, 1.8vw, 1.3rem);
   font-weight: 800;
   letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .admin-dash__sub {
-  margin: 0.4rem 0 0;
+  margin: 0.2rem 0 0;
   opacity: 0.86;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  max-width: 42ch;
 }
 
 .admin-dash__quick {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.35rem;
   align-content: flex-start;
+  max-width: min(100%, 34rem);
 }
 
 .admin-dash__quick-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 2.35rem;
-  padding: 0 0.85rem;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #fff;
   text-decoration: none;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   font-weight: 650;
   transition: background 160ms ease, transform 160ms ease;
 }
@@ -706,8 +711,8 @@ function buildDonut(items) {
 .admin-dash__stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin-bottom: 1rem;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
 }
 
 @media (min-width: 900px) {
@@ -725,13 +730,13 @@ function buildDonut(items) {
 .admin-stat {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
   min-width: 0;
-  padding: 0.95rem 1rem;
-  border-radius: 0.95rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.8rem;
   background: #fff;
   border: 1px solid var(--line);
-  box-shadow: 0 8px 20px rgba(16, 42, 46, 0.04);
+  box-shadow: 0 6px 16px rgba(16, 42, 46, 0.04);
   animation: dash-rise 520ms ease both;
 }
 
@@ -744,9 +749,9 @@ function buildDonut(items) {
 .admin-stat__icon {
   display: grid;
   place-items: center;
-  width: 2.55rem;
-  height: 2.55rem;
-  border-radius: 0.8rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.65rem;
   color: #fff;
   flex: 0 0 auto;
 }
@@ -766,8 +771,8 @@ function buildDonut(items) {
 }
 
 .admin-stat__value {
-  margin: 0.15rem 0 0;
-  font-size: 1.15rem;
+  margin: 0.1rem 0 0;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;

@@ -20,35 +20,36 @@
 .admin-ui {
   color: var(--admin-ink);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.4;
 }
 
 .admin-ui__hero {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.85rem;
+  gap: 0.55rem;
+  margin-bottom: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
   background:
     radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.16), transparent 42%),
     linear-gradient(135deg, var(--admin-teal) 0%, var(--admin-teal-mid) 55%, var(--admin-teal-deep) 100%);
   color: #f7fbfb;
-  box-shadow: 0 10px 28px rgba(15, 92, 102, 0.16);
+  box-shadow: 0 8px 20px rgba(15, 92, 102, 0.14);
 }
 
 @media (min-width: 720px) {
   .admin-ui__hero {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
+    gap: 0.75rem 1rem;
   }
 }
 
 .admin-ui__eyebrow {
-  margin: 0 0 0.2rem;
-  font-size: 0.68rem;
+  margin: 0 0 0.12rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -57,23 +58,24 @@
 
 .admin-ui__hero h1 {
   margin: 0;
-  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+  font-size: clamp(1.02rem, 1.8vw, 1.22rem);
   font-weight: 800;
   letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .admin-ui__lead {
-  margin: 0.25rem 0 0;
+  margin: 0.18rem 0 0;
   opacity: 0.88;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  max-width: 52ch;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-width: 48ch;
 }
 
 .admin-ui__hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.4rem;
   width: 100%;
 }
 
@@ -88,13 +90,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-height: 2.35rem;
-  padding: 0 0.85rem;
+  gap: 0.3rem;
+  min-height: 2.1rem;
+  padding: 0 0.75rem;
   border: 0;
-  border-radius: 0.6rem;
+  border-radius: 0.55rem;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
@@ -148,12 +150,12 @@
 }
 
 .admin-ui__panel {
-  margin-bottom: 0.85rem;
-  padding: 0.85rem;
-  border-radius: 0.85rem;
+  margin-bottom: 0.7rem;
+  padding: 0.7rem;
+  border-radius: 0.75rem;
   background: #fff;
   border: 1px solid var(--admin-line);
-  box-shadow: 0 8px 20px rgba(16, 42, 46, 0.035);
+  box-shadow: 0 6px 16px rgba(16, 42, 46, 0.03);
 }
 
 .admin-ui__panel-head {
@@ -161,21 +163,21 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.65rem;
-  margin-bottom: 0.85rem;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
 }
 
 .admin-ui__panel-head h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .admin-ui__panel-head p {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
 .admin-ui__filters {
@@ -227,14 +229,14 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  min-height: 2.5rem;
-  padding: 0.55rem 0.75rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
   border: 1px solid var(--admin-line);
-  border-radius: 0.6rem;
+  border-radius: 0.55rem;
   background: #fff;
   color: var(--admin-ink);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   line-height: 1.35;
 }
 
@@ -315,35 +317,35 @@
 .admin-ui__empty {
   display: grid;
   place-items: center;
-  gap: 0.55rem;
-  min-height: 160px;
-  padding: 1.5rem 1rem;
+  gap: 0.45rem;
+  min-height: 120px;
+  padding: 1.1rem 0.85rem;
   text-align: center;
   color: var(--admin-muted);
 }
 
 .admin-ui__empty {
   background: var(--admin-paper);
-  border-radius: 0.85rem;
+  border-radius: 0.75rem;
 }
 
 .admin-ui__empty p,
 .admin-ui__loading p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .admin-ui__list {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .admin-ui__row {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.75rem;
-  border-radius: 0.75rem;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 0.65rem;
   background: var(--admin-paper);
   border: 1px solid var(--admin-line);
   min-width: 0;
@@ -783,4 +785,21 @@
   .admin-dialog__actions .admin-ui__btn {
     width: 100%;
   }
+}
+
+/* Keep Vuetify fields visually compact inside admin pages */
+.admin-ui .v-input--density-default .v-field__input,
+.admin-ui .v-field__input {
+  min-height: 36px;
+}
+
+.admin-ui .v-field {
+  --v-field-padding-top: 6px;
+  --v-field-padding-bottom: 6px;
+}
+
+.admin-ui .v-btn:not(.v-btn--icon) {
+  min-height: 36px;
+  text-transform: none;
+  letter-spacing: 0;
 }
