@@ -393,6 +393,22 @@ body,
   }
 }
 
+.site-nav__cart {
+  display: inline-grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 0.65rem;
+  background: #f3f4f6;
+  color: #243b53;
+  text-decoration: none;
+}
+
+.site-nav__cart :deep(.v-badge__badge) {
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
 .site-nav__bell :deep(.v-btn) {
   width: 2.45rem !important;
   height: 2.45rem !important;

@@ -9,6 +9,7 @@ import SearchSparkIcon from '../components/SearchSparkIcon.vue'
 import SiteEntryPopup from '../components/SiteEntryPopup.vue'
 import TypedSearchPlaceholder from '../components/TypedSearchPlaceholder.vue'
 import { useAuthStore } from '../stores/auth'
+import { useCartStore } from '../stores/cart'
 import { useLocaleStore } from '../stores/locale'
 import { useUiStore } from '../stores/ui'
 
@@ -19,6 +20,7 @@ const { mdAndUp } = useDisplay()
 const localeStore = useLocaleStore()
 const ui = useUiStore()
 const auth = useAuthStore()
+const cart = useCartStore()
 const drawer = ref(false)
 const studentMenuOpen = ref(false)
 const studentSideCollapsed = ref(false)
@@ -53,8 +55,11 @@ const redirectQuery = computed(() => (
 
 const studentLinks = computed(() => [
   { name: 'student-dashboard', label: t('studentDashboard'), icon: 'mdi-view-dashboard-outline' },
+  { name: 'skill-analytics', label: t('skillAnalytics'), icon: 'mdi-chart-timeline-variant' },
   { name: 'my-courses', label: t('myCourses'), icon: 'mdi-book-open-page-variant-outline' },
+  { name: 'cart', label: t('shoppingCart'), icon: 'mdi-cart-outline' },
   { name: 'orders', label: t('myOrders'), icon: 'mdi-receipt-text-outline' },
+  { name: 'full-mocks', label: t('fullMockExams'), icon: 'mdi-clipboard-text-clock-outline' },
   { name: 'reading-tests', label: t('readingTests'), icon: 'mdi-book-outline' },
   { name: 'listening-tests', label: t('listeningTests'), icon: 'mdi-headphones' },
   { name: 'writing-tasks', label: t('writingTasks'), icon: 'mdi-pencil-outline' },
@@ -105,6 +110,7 @@ function navActive(name) {
 function studentNavActive(name) {
   if (route.name === name) return true
   const aliases = {
+    'full-mocks': ['full-mock-intro', 'full-mock-session'],
     'reading-tests': ['reading-test-intro', 'reading-attempt', 'reading-results'],
     'listening-tests': ['listening-test-intro', 'listening-attempt', 'listening-results'],
     'writing-tasks': ['writing-editor', 'writing-submissions'],
@@ -209,10 +215,7 @@ const dashboardLabel = computed(() => {
           <router-link class="site-nav__text-link" :to="{ name: 'courses' }">
             {{ t('allCourses') }}
           </router-link>
-          <router-link
-            class="site-nav__text-link"
-            :to="{ name: 'home', hash: '#landing-mocks' }"
-          >
+          <router-link class="site-nav__text-link" :to="{ name: 'free-practice' }">
             <span class="site-nav__new">{{ t('landingNewBadge') }}</span>
             {{ t('navMocks') }}
           </router-link>
@@ -220,6 +223,20 @@ const dashboardLabel = computed(() => {
         <div v-else class="site-nav__spacer" />
 
         <div class="site-nav__actions">
+          <router-link
+            class="site-nav__cart"
+            :to="{ name: 'cart' }"
+            :aria-label="t('shoppingCart')"
+          >
+            <v-badge
+              :content="cart.count"
+              :model-value="cart.count > 0"
+              color="#0f5c66"
+              overlap
+            >
+              <v-icon icon="mdi-cart-outline" size="22" />
+            </v-badge>
+          </router-link>
           <NotificationBell v-if="auth.isAuthenticated" class="site-nav__bell" />
 
           <button
@@ -339,9 +356,13 @@ const dashboardLabel = computed(() => {
           </span>
           <button type="submit">{{ t('search') }}</button>
         </form>
+        <router-link :to="{ name: 'cart' }" @click="landingMenuOpen = false">
+          {{ t('shoppingCart') }}
+          <template v-if="cart.count"> ({{ cart.count }})</template>
+        </router-link>
         <router-link :to="{ name: 'free-courses' }" @click="landingMenuOpen = false">{{ t('navFreeCourses') }}</router-link>
         <router-link :to="{ name: 'courses' }" @click="landingMenuOpen = false">{{ t('allCourses') }}</router-link>
-        <router-link :to="{ name: 'home', hash: '#landing-mocks' }" @click="landingMenuOpen = false">
+        <router-link :to="{ name: 'free-practice' }" @click="landingMenuOpen = false">
           {{ t('navMocks') }}
         </router-link>
         <router-link
@@ -554,6 +575,12 @@ const dashboardLabel = computed(() => {
             prepend-icon="mdi-cash-refund"
           />
           <v-list-item
+            v-if="auth.hasPermission('payments.manage')"
+            :title="t('manageCoupons')"
+            to="/admin/coupons"
+            prepend-icon="mdi-ticket-percent-outline"
+          />
+          <v-list-item
             v-if="auth.hasPermission('reports.view') || auth.hasPermission('progress.view_assigned')"
             :title="t('reports')"
             to="/admin/reports"
@@ -564,6 +591,12 @@ const dashboardLabel = computed(() => {
             :title="t('manageReadingTests')"
             to="/admin/reading-tests"
             prepend-icon="mdi-book-open-page-variant"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('mock_tests.manage')"
+            :title="t('manageFullMocks')"
+            to="/admin/full-mocks"
+            prepend-icon="mdi-clipboard-text-clock-outline"
           />
           <v-list-item
             v-if="auth.hasPermission('mock_tests.manage')"

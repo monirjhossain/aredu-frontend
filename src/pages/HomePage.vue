@@ -62,8 +62,8 @@ const testimonials = computed(() => [
 const activeStory = computed(() => testimonials.value[storyIndex.value] || testimonials.value[0])
 
 const mockSkills = computed(() => [
-  { key: 'reading', labelKey: 'landingMocksReading', to: { name: 'register' } },
-  { key: 'listening', labelKey: 'landingMocksListening', to: { name: 'register' } },
+  { key: 'reading', labelKey: 'landingMocksReading', to: { name: 'free-practice', query: { module: 'reading' } } },
+  { key: 'listening', labelKey: 'landingMocksListening', to: { name: 'free-practice', query: { module: 'listening' } } },
   { key: 'writing', labelKey: 'landingMocksWriting', to: { name: 'courses' } },
   { key: 'speaking', labelKey: 'landingMocksSpeaking', to: { name: 'courses' } },
 ])

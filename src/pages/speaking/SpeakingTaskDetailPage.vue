@@ -1,16 +1,19 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import PracticeAudioPlayer from '../../components/examination/PracticeAudioPlayer.vue'
 import { http } from '../../services/http'
 import { useAuthStore } from '../../stores/auth'
 import { apiError } from '../../utils/apiError'
 import { useUiStore } from '../../stores/ui'
+import { useFullMockContext } from '../../composables/useFullMockContext'
 
 const { t } = useI18n()
 const ui = useUiStore()
 const route = useRoute()
 const auth = useAuthStore()
+const { contextKey, contextParams, inSession, hubRoute, completeAndReturn } = useFullMockContext()
 
 const task = ref(null)
 const recording = ref(null)
@@ -29,14 +32,28 @@ const localPreviewUrl = ref('')
 const serverAudioUrl = ref('')
 const audioError = ref('')
 const fileInput = ref(null)
+const prepRemaining = ref(0)
+const prepActive = ref(false)
+let prepTimer = null
 
 const locked = computed(() => recording.value?.status === 'submitted')
 const evaluation = computed(() => recording.value?.evaluation || null)
 const canSubmit = computed(() => recording.value?.status === 'uploaded' && !locked.value)
+const previewSrc = computed(() => serverAudioUrl.value || localPreviewUrl.value)
 
 onMounted(load)
+watch(() => route.params.id, () => {
+  if (isRecording.value) stopRecording()
+  stopTimer()
+  stopPrep()
+  stopTracks()
+  revokeLocal()
+  revokeServer()
+  load()
+})
 onBeforeUnmount(() => {
   stopTimer()
+  stopPrep()
   stopTracks()
   revokeLocal()
   revokeServer()
@@ -45,10 +62,18 @@ onBeforeUnmount(() => {
 async function load() {
   loading.value = true
   message.value = ''
+  task.value = null
+  recording.value = null
+  elapsed.value = 0
+  audioError.value = ''
+  stopPrep()
   try {
     const [taskRes, recordingRes] = await Promise.all([
       http.get(`/speaking-tasks/${route.params.id}`, { skipErrorToast: true }),
-      http.get(`/speaking-tasks/${route.params.id}/recording`, { skipErrorToast: true }),
+      http.get(`/speaking-tasks/${route.params.id}/recording`, {
+        params: contextParams.value,
+        skipErrorToast: true,
+      }),
     ])
     task.value = taskRes.data.data
     recording.value = recordingRes.data.data
@@ -74,6 +99,39 @@ function stopTimer() {
     clearInterval(timerId.value)
     timerId.value = null
   }
+}
+
+function stopPrep() {
+  if (prepTimer) {
+    clearInterval(prepTimer)
+    prepTimer = null
+  }
+  prepActive.value = false
+  prepRemaining.value = 0
+}
+
+function startPrep() {
+  if (locked.value || isRecording.value || uploading.value) return
+  stopPrep()
+  const seconds = Number(task.value?.preparation_seconds || 0)
+  if (seconds <= 0) {
+    startRecording()
+    return
+  }
+  prepActive.value = true
+  prepRemaining.value = seconds
+  prepTimer = setInterval(() => {
+    prepRemaining.value -= 1
+    if (prepRemaining.value <= 0) {
+      stopPrep()
+      startRecording()
+    }
+  }, 1000)
+}
+
+function skipPrep() {
+  stopPrep()
+  startRecording()
 }
 
 function startTimer() {
@@ -169,7 +227,12 @@ async function uploadBlob(blob, durationSeconds) {
     const ext = (blob.type || '').includes('ogg') ? 'ogg' : 'webm'
     body.append('recording', blob, `speaking.${ext}`)
     if (durationSeconds) body.append('duration_seconds', String(durationSeconds))
-    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording`, body, { skipErrorToast: true, skipSuccessToast: true })
+    if (contextKey.value) body.append('context_key', contextKey.value)
+    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording`, body, {
+      params: contextParams.value,
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
     recording.value = data.data
     ui.success(t('recordingUploaded'))
     if (data.data.audio_url) await loadServerAudio(data.data.audio_url)
@@ -192,9 +255,17 @@ async function submitRecording() {
   submitting.value = true
   message.value = ''
   try {
-    const { data } = await http.post(`/speaking-tasks/${route.params.id}/recording/submit`, {}, { skipErrorToast: true, skipSuccessToast: true })
+    const { data } = await http.post(
+      `/speaking-tasks/${route.params.id}/recording/submit`,
+      { ...contextParams.value },
+      { params: contextParams.value, skipErrorToast: true, skipSuccessToast: true },
+    )
     recording.value = data.data
     ui.success(t('recordingSubmitted'))
+    if (inSession.value) {
+      await completeAndReturn((section) => section.skill === 'speaking'
+        && (!contextKey.value || section.context_key === contextKey.value))
+    }
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
   } finally {
@@ -204,29 +275,39 @@ async function submitRecording() {
 </script>
 
 <template>
-  <div class="smock">
-    <router-link class="smock__back" :to="{ name: 'speaking-tasks' }">
+  <div class="student-ui">
+    <router-link
+      class="student-ui__unlock-cta"
+      style="background: transparent; color: var(--student-teal); padding-left: 0"
+      :to="hubRoute || { name: 'speaking-tasks' }"
+    >
       <span aria-hidden="true">←</span>
-      {{ t('backToSpeakingTasksPublic') }}
+      {{ hubRoute ? t('backToExamHub') : t('backToSpeakingTasksPublic') }}
     </router-link>
 
-    <div v-if="loading" class="smock__panel smock__loader">
+    <div v-if="loading" class="student-ui__loader">
       <v-progress-circular indeterminate color="#0f5c66" size="36" />
     </div>
     <v-alert v-else-if="message && !task" type="error" variant="tonal">{{ message }}</v-alert>
 
     <template v-else-if="task">
-      <header class="smock__hero">
+      <header class="student-ui__hero">
         <div>
-          <p class="smock__eyebrow">{{ partLabel(task.part) }}</p>
+          <p class="student-ui__eyebrow">{{ partLabel(task.part) }}</p>
           <h1>{{ task.title }}</h1>
-          <div class="smock__pills">
-            <span>{{ t('prepSecondsShort', { count: task.preparation_seconds }) }}</span>
-            <span>{{ t('responseSecondsShort', { count: task.response_seconds }) }}</span>
-            <span>{{ t('questionsCount', { count: (task.questions || []).length }) }}</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem">
+            <span class="student-ui__badge" style="background: rgba(255,255,255,0.16); color: #fff">
+              {{ t('prepSecondsShort', { count: task.preparation_seconds }) }}
+            </span>
+            <span class="student-ui__badge" style="background: rgba(255,255,255,0.16); color: #fff">
+              {{ t('responseSecondsShort', { count: task.response_seconds }) }}
+            </span>
+            <span class="student-ui__badge" style="background: rgba(255,255,255,0.16); color: #fff">
+              {{ t('questionsCount', { count: (task.questions || []).length }) }}
+            </span>
           </div>
         </div>
-        <router-link class="smock__hero-link" :to="{ name: 'speaking-recordings' }">
+        <router-link class="student-ui__hero-link" :to="{ name: 'speaking-recordings' }">
           {{ t('mySpeakingRecordings') }}
           <span aria-hidden="true">→</span>
         </router-link>
@@ -234,28 +315,36 @@ async function submitRecording() {
 
       <v-alert v-if="message" type="error" variant="tonal">{{ message }}</v-alert>
       <v-alert v-if="locked" type="info" variant="tonal">{{ t('speakingLocked') }}</v-alert>
+      <v-alert v-if="locked && hubRoute" type="success" variant="tonal">
+        <router-link :to="hubRoute">{{ t('returnToExamHub') }} →</router-link>
+      </v-alert>
 
-      <section class="smock__panel">
-        <h2 class="smock__h2">{{ t('speakingQuestions') }}</h2>
-        <p v-if="task.instructions" class="smock__instructions">{{ task.instructions }}</p>
-        <ol class="smock__questions">
-          <li v-for="item in task.questions || []" :key="item.id" class="smock-q">
-            <span class="smock-q__num">{{ item.position }}</span>
-            <div class="smock-q__body">
-              <p class="smock-q__prompt">{{ item.prompt }}</p>
-              <div v-if="item.cue_card" class="smock-q__cue">
+      <section class="student-ui__pane">
+        <h2>{{ t('speakingQuestions') }}</h2>
+        <p v-if="task.instructions" class="student-ui__hint" style="white-space: pre-wrap">{{ task.instructions }}</p>
+        <ol style="margin: 0; padding: 0; list-style: none; display: grid; gap: 0.75rem">
+          <li
+            v-for="(item, index) in task.questions || []"
+            :key="item.id"
+            class="student-ui__card"
+            style="display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: start"
+          >
+            <span class="student-ui__badge">{{ index + 1 }}</span>
+            <div>
+              <p style="margin: 0; font-weight: 750; line-height: 1.45">{{ item.prompt }}</p>
+              <div v-if="item.cue_card" class="student-ui__hint" style="margin-top: 0.55rem; padding: 0.65rem; border-radius: 0.55rem; background: var(--student-paper)">
                 <strong>{{ t('speakingCueCardTitle') }}</strong>
-                <p>{{ item.cue_card }}</p>
+                <p style="margin: 0.35rem 0 0; white-space: pre-wrap">{{ item.cue_card }}</p>
               </div>
             </div>
           </li>
         </ol>
       </section>
 
-      <section class="smock__panel">
-        <div class="smock__panel-head">
-          <h2 class="smock__h2">{{ t('yourRecording') }}</h2>
-          <span v-if="recording" class="smock__status" :class="`is-${recording.status}`">
+      <section class="student-ui__pane">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.55rem; margin-bottom: 0.75rem">
+          <h2 style="margin: 0">{{ t('yourRecording') }}</h2>
+          <span v-if="recording" class="student-ui__badge" :class="{ 'student-ui__badge--free': recording.status !== 'submitted' }">
             {{ recording.status === 'submitted' ? t('statusSubmitted') : (recording.status === 'uploaded' ? t('statusUploaded') : recording.status) }}
           </span>
         </div>
@@ -264,445 +353,104 @@ async function submitRecording() {
           {{ t('mediaRecorderUnsupported') }}
         </v-alert>
 
-        <div class="smock__timer" :class="{ 'is-live': isRecording }">
-          <span v-if="isRecording" class="smock__dot" aria-hidden="true" />
-          <strong>{{ t('recordingElapsed', { count: elapsed }) }}</strong>
-          <span v-if="task.response_seconds">/ {{ task.response_seconds }}s</span>
-        </div>
+        <div class="student-ui__recorder">
+          <div class="student-ui__recorder-ring" :class="{ 'is-live': isRecording }">
+            <button
+              v-if="recorderSupported && !isRecording && !prepActive"
+              type="button"
+              class="student-ui__recorder-mic"
+              :disabled="locked || uploading"
+              :aria-label="t('startRecording')"
+              @click="startPrep"
+            >
+              <v-icon size="28">mdi-microphone</v-icon>
+            </button>
+            <button
+              v-else-if="isRecording"
+              type="button"
+              class="student-ui__recorder-mic is-live"
+              :aria-label="t('stopRecording')"
+              @click="stopRecording"
+            >
+              <v-icon size="28">mdi-stop</v-icon>
+            </button>
+            <div v-else-if="prepActive" class="student-ui__recorder-time">{{ prepRemaining }}</div>
+          </div>
 
-        <div class="smock__actions">
-          <button
-            v-if="recorderSupported"
-            type="button"
-            class="smock__btn smock__btn--primary"
-            :disabled="locked || isRecording || uploading"
-            @click="startRecording"
-          >
-            <v-icon size="18">mdi-microphone</v-icon>
-            {{ t('startRecording') }}
-          </button>
-          <button
-            v-if="isRecording"
-            type="button"
-            class="smock__btn smock__btn--danger"
-            @click="stopRecording"
-          >
-            <v-icon size="18">mdi-stop</v-icon>
-            {{ t('stopRecording') }}
-          </button>
-          <button
-            type="button"
-            class="smock__btn smock__btn--soft"
-            :disabled="locked || uploading || isRecording"
-            @click="fileInput?.click()"
-          >
-            <v-icon size="18">mdi-upload</v-icon>
-            {{ t('uploadRecordingFile') }}
-          </button>
-          <button
-            type="button"
-            class="smock__btn smock__btn--dark"
-            :disabled="!canSubmit || submitting"
-            @click="submitRecording"
-          >
-            <v-icon size="18">mdi-send</v-icon>
-            {{ t('submitRecording') }}
-          </button>
+          <div v-if="prepActive" class="student-ui__recorder-time">
+            {{ t('prepCountdown', { count: prepRemaining }) }}
+          </div>
+          <div v-else class="student-ui__recorder-time">
+            {{ t('recordingElapsed', { count: elapsed }) }}
+            <span v-if="task.response_seconds" style="opacity: 0.65; font-size: 0.9rem"> / {{ task.response_seconds }}s</span>
+          </div>
+          <p v-if="!isRecording && !prepActive && !locked" class="student-ui__hint" style="margin: 0">
+            {{ t('startWhenReady') }}
+          </p>
+
+          <div class="student-ui__recorder-actions">
+            <button
+              v-if="prepActive"
+              type="button"
+              class="student-ui__btn student-ui__btn--yellow"
+              @click="skipPrep"
+            >
+              {{ t('skipPrep') }}
+            </button>
+            <button
+              type="button"
+              class="student-ui__btn student-ui__btn--soft"
+              :disabled="locked || uploading || isRecording || prepActive"
+              @click="fileInput?.click()"
+            >
+              <v-icon size="18">mdi-upload</v-icon>
+              {{ t('uploadRecordingFile') }}
+            </button>
+            <button
+              type="button"
+              class="student-ui__btn student-ui__btn--dark"
+              :disabled="!canSubmit || submitting"
+              @click="submitRecording"
+            >
+              <v-icon size="18">mdi-send</v-icon>
+              {{ t('submitRecording') }}
+            </button>
+          </div>
         </div>
 
         <input ref="fileInput" type="file" class="d-none" accept="audio/*,video/webm" @change="onFileSelected">
         <v-progress-linear v-if="uploading || submitting" indeterminate color="#0f5c66" class="mb-3" />
-        <v-alert v-if="audioError" type="warning" variant="tonal">{{ audioError }}</v-alert>
-        <audio v-else-if="serverAudioUrl || localPreviewUrl" :src="serverAudioUrl || localPreviewUrl" controls class="smock__audio" />
+        <PracticeAudioPlayer
+          v-if="previewSrc || audioError"
+          :src="previewSrc"
+          :error="audioError"
+          :loading-label="t('loadingAudio')"
+        />
 
-        <ul class="smock__tips">
+        <ul class="student-ui__tips" style="margin-top: 1rem">
           <li>{{ t('speakingTipRecord') }}</li>
           <li>{{ t('speakingTipPrep') }}</li>
           <li>{{ t('speakingTipSubmit') }}</li>
         </ul>
       </section>
 
-      <section v-if="evaluation" class="smock__panel">
-        <h2 class="smock__h2">{{ t('yourEvaluation') }}</h2>
-        <p class="smock__muted">{{ t('evaluationReturned') }}</p>
-        <div class="smock__band">
-          <span>{{ t('overallBand') }}</span>
-          <strong>{{ evaluation.overall_band }}</strong>
+      <section v-if="evaluation" class="student-ui__pane">
+        <h2>{{ t('yourEvaluation') }}</h2>
+        <p class="student-ui__hint">{{ t('evaluationReturned') }}</p>
+        <div class="student-ui__card" style="align-items: center; text-align: center; margin-bottom: 0.75rem">
+          <span class="student-ui__card-meta">{{ t('overallBand') }}</span>
+          <strong style="font-size: 1.6rem; color: var(--student-teal)">{{ evaluation.overall_band }}</strong>
         </div>
-        <div class="smock__scores">
-          <div><span>{{ t('fluency') }}</span><strong>{{ evaluation.fluency }}</strong></div>
-          <div><span>{{ t('lexical') }}</span><strong>{{ evaluation.lexical }}</strong></div>
-          <div><span>{{ t('grammar') }}</span><strong>{{ evaluation.grammar }}</strong></div>
-          <div><span>{{ t('pronunciation') }}</span><strong>{{ evaluation.pronunciation }}</strong></div>
+        <div class="student-ui__grid" style="grid-template-columns: repeat(2, minmax(0, 1fr))">
+          <div class="student-ui__card"><span class="student-ui__card-meta">{{ t('fluency') }}</span><strong>{{ evaluation.fluency }}</strong></div>
+          <div class="student-ui__card"><span class="student-ui__card-meta">{{ t('lexical') }}</span><strong>{{ evaluation.lexical }}</strong></div>
+          <div class="student-ui__card"><span class="student-ui__card-meta">{{ t('grammar') }}</span><strong>{{ evaluation.grammar }}</strong></div>
+          <div class="student-ui__card"><span class="student-ui__card-meta">{{ t('pronunciation') }}</span><strong>{{ evaluation.pronunciation }}</strong></div>
         </div>
-        <p v-if="evaluation.feedback" class="smock__feedback">{{ evaluation.feedback }}</p>
-        <p v-else class="smock__muted">{{ t('noTeacherFeedback') }}</p>
+        <p v-if="evaluation.feedback" class="student-ui__hint" style="white-space: pre-wrap; margin-top: 0.75rem">{{ evaluation.feedback }}</p>
+        <p v-else class="student-ui__hint">{{ t('noTeacherFeedback') }}</p>
       </section>
       <v-alert v-else-if="locked" type="info" variant="tonal">{{ t('waitingForEvaluation') }}</v-alert>
     </template>
   </div>
 </template>
-
-<style scoped>
-.smock {
-  display: grid;
-  gap: 1rem;
-  font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
-  color: #102a2e;
-}
-
-.smock__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 44px;
-  width: fit-content;
-  color: #0f5c66;
-  font-weight: 800;
-  font-size: 0.88rem;
-  text-decoration: none;
-}
-
-.smock__hero {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.2rem 1.25rem;
-  border-radius: 1rem;
-  background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
-    linear-gradient(135deg, #0b3d36 0%, #0f5c66 55%, #0a2a3a 100%);
-  color: #fff;
-}
-
-@media (min-width: 720px) {
-  .smock__hero {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
-}
-
-.smock__eyebrow {
-  margin: 0 0 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.78;
-}
-
-.smock__hero h1 {
-  margin: 0;
-  font-size: clamp(1.35rem, 3vw, 1.8rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  word-break: break-word;
-}
-
-.smock__pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.7rem;
-}
-
-.smock__pills span {
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.smock__hero-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 44px;
-  padding: 0 1rem;
-  border-radius: 0.65rem;
-  background: #f5c518;
-  color: #1a1400;
-  text-decoration: none;
-  font-size: 0.86rem;
-  font-weight: 800;
-  width: fit-content;
-}
-
-.smock__panel {
-  padding: 1rem;
-  border-radius: 1rem;
-  border: 1px solid #d9e6e8;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
-  min-width: 0;
-}
-
-.smock__loader {
-  display: grid;
-  place-items: center;
-  min-height: 160px;
-}
-
-.smock__panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.smock__h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1.05rem;
-  font-weight: 800;
-}
-
-.smock__panel-head .smock__h2 {
-  margin: 0;
-}
-
-.smock__status {
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(15, 92, 102, 0.12);
-  color: #0f5c66;
-  font-size: 0.74rem;
-  font-weight: 800;
-}
-
-.smock__status.is-submitted {
-  background: rgba(22, 130, 73, 0.14);
-  color: #167a46;
-}
-
-.smock__instructions {
-  margin: 0 0 0.9rem;
-  color: #3c5a60;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.smock__questions {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.smock-q {
-  display: flex;
-  gap: 0.7rem;
-  padding: 0.8rem;
-  border: 1px solid #d9e6e8;
-  border-radius: 0.8rem;
-  background: #fbfcfd;
-}
-
-.smock-q__num {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 50%;
-  background: #0f5c66;
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.smock-q__body {
-  min-width: 0;
-  flex: 1;
-}
-
-.smock-q__prompt {
-  margin: 0.25rem 0 0;
-  font-weight: 700;
-  line-height: 1.45;
-  word-break: break-word;
-}
-
-.smock-q__cue {
-  margin-top: 0.6rem;
-  padding: 0.7rem 0.8rem;
-  border-left: 4px solid #f5c518;
-  border-radius: 0.5rem;
-  background: #fffbe8;
-  font-size: 0.9rem;
-}
-
-.smock-q__cue p {
-  margin: 0.25rem 0 0;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.smock__timer {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.8rem;
-  font-size: 1.5rem;
-  color: #0f5c66;
-}
-
-.smock__timer > span:last-child {
-  color: #5b7378;
-  font-size: 0.9rem;
-}
-
-.smock__timer.is-live strong {
-  color: #c0392b;
-}
-
-.smock__dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  background: #c0392b;
-  animation: smock-pulse 1s ease-in-out infinite;
-}
-
-@keyframes smock-pulse {
-  50% {
-    opacity: 0.25;
-  }
-}
-
-.smock__actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-}
-
-@media (min-width: 640px) {
-  .smock__actions {
-    display: flex;
-    flex-wrap: wrap;
-  }
-}
-
-.smock__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 44px;
-  padding: 0 1.1rem;
-  border: 0;
-  border-radius: 0.65rem;
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.smock__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.smock__btn--primary {
-  background: #0f5c66;
-  color: #fff;
-}
-
-.smock__btn--danger {
-  background: #c0392b;
-  color: #fff;
-}
-
-.smock__btn--soft {
-  background: rgba(15, 92, 102, 0.12);
-  color: #0f5c66;
-}
-
-.smock__btn--dark {
-  background: #0b1b34;
-  color: #fff;
-}
-
-.smock__audio {
-  display: block;
-  width: 100%;
-  margin-top: 0.4rem;
-}
-
-.smock__tips {
-  display: grid;
-  gap: 0.3rem;
-  margin: 1rem 0 0;
-  padding: 0.75rem 0.9rem 0.75rem 1.8rem;
-  border-radius: 0.75rem;
-  background: rgba(15, 92, 102, 0.06);
-  color: #3c5a60;
-  font-size: 0.84rem;
-  line-height: 1.4;
-}
-
-.smock__muted {
-  margin: 0;
-  color: #5b7378;
-  font-size: 0.88rem;
-}
-
-.smock__band {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  margin: 0.75rem 0;
-  color: #5b7378;
-  font-weight: 750;
-}
-
-.smock__band strong {
-  color: #0f5c66;
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.smock__scores {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 0.9rem;
-}
-
-@media (min-width: 720px) {
-  .smock__scores {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.smock__scores div {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.7rem;
-  border: 1px solid #d9e6e8;
-  border-radius: 0.7rem;
-  background: #fbfcfd;
-}
-
-.smock__scores span {
-  color: #5b7378;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.smock__scores strong {
-  font-size: 1.15rem;
-}
-
-.smock__feedback {
-  margin: 0;
-  line-height: 1.55;
-  white-space: pre-wrap;
-}
-</style>

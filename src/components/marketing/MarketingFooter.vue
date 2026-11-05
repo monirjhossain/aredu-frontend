@@ -34,6 +34,7 @@ const logoSrc = computed(() => props.logoUrl || `${import.meta.env.BASE_URL}imag
         <h2>{{ t('footerExplore') }}</h2>
         <router-link :to="{ name: 'home' }">{{ t('home') }}</router-link>
         <router-link :to="{ name: 'free-courses' }">{{ t('navFreeCourses') }}</router-link>
+        <router-link :to="{ name: 'free-practice' }">{{ t('navMocks') }}</router-link>
         <router-link :to="{ name: 'courses' }">{{ t('allCourses') }}</router-link>
         <router-link v-if="!auth.isAuthenticated" :to="{ name: 'login' }">{{ t('login') }}</router-link>
         <router-link v-if="!auth.isAuthenticated" :to="{ name: 'register' }">{{ t('register') }}</router-link>

@@ -8,6 +8,7 @@ import { http } from '../../services/http'
 import { cacheGet, cacheSet } from '../../services/publicCache'
 import { apiError } from '../../utils/apiError'
 import { useAuthStore } from '../../stores/auth'
+import { useCartStore } from '../../stores/cart'
 import { useLocaleStore } from '../../stores/locale'
 import { useUiStore } from '../../stores/ui'
 import {
@@ -23,6 +24,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const cart = useCartStore()
 const localeStore = useLocaleStore()
 const ui = useUiStore()
 
@@ -201,6 +203,18 @@ async function load() {
   }
 }
 
+const inCart = computed(() => (course.value?.id ? cart.has(course.value.id) : false))
+
+function addToCart() {
+  if (!course.value?.id || course.value.is_enrolled) return
+  if (cart.has(course.value.id)) {
+    ui.info(t('alreadyInCart'))
+    return
+  }
+  cart.add(course.value)
+  ui.success(t('addedToCart'))
+}
+
 async function purchase() {
   if (!auth.isAuthenticated) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
@@ -213,6 +227,15 @@ async function purchase() {
   try {
     const { data } = await http.post('/orders', { course_ids: [course.value.id] }, { skipErrorToast: true })
     const order = data.data
+    cart.remove(course.value.id)
+    if (order.status === 'paid' || Number(order.total) <= 0.009) {
+      purchaseNote.value = t('freeOrderActivated')
+      ui.success(purchaseNote.value)
+      course.value = { ...course.value, is_enrolled: true }
+      const slug = course.value.slug || route.params.slug
+      router.push({ name: 'learning-course', params: { slug } })
+      return
+    }
     purchaseNote.value = t('orderCreatedPayFromOrders', {
       number: order.order_number,
       total: order.total,
@@ -342,14 +365,31 @@ watch(() => route.params.slug, () => {
               </router-link>
             </template>
             <template v-else>
-              <button
-                type="button"
-                class="site-btn site-btn--primary"
-                :disabled="purchasing"
-                @click="purchase"
-              >
-                {{ purchasing ? t('loading') : (auth.isAuthenticated ? t('purchase') : t('loginToPurchase')) }}
-              </button>
+              <div class="site-buy__actions">
+                <button
+                  type="button"
+                  class="site-btn site-btn--primary"
+                  :disabled="purchasing"
+                  @click="purchase"
+                >
+                  {{ purchasing ? t('loading') : (auth.isAuthenticated ? t('purchase') : t('loginToPurchase')) }}
+                </button>
+                <button
+                  v-if="!inCart"
+                  type="button"
+                  class="site-btn site-btn--ghost"
+                  @click="addToCart"
+                >
+                  {{ t('addToCart') }}
+                </button>
+                <router-link
+                  v-else
+                  class="site-btn site-btn--ghost"
+                  :to="{ name: 'cart' }"
+                >
+                  {{ t('viewCart') }}
+                </router-link>
+              </div>
               <p v-if="purchaseNote" class="site-buy__info">{{ purchaseNote }}</p>
             </template>
           </aside>
@@ -741,6 +781,17 @@ watch(() => route.params.slug, () => {
   color: #146c43;
   font-weight: 700;
   font-size: 0.92rem;
+}
+
+.site-buy__actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.site-buy__actions .site-btn--ghost {
+  width: 100%;
+  min-height: 2.85rem;
+  font-size: inherit;
 }
 
 .site-btn {

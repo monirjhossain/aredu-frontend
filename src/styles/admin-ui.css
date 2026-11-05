@@ -543,6 +543,13 @@
   color: var(--admin-muted);
 }
 
+.admin-ui__hint {
+  margin: -0.15rem 0 0.65rem;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .admin-ui__text-btn {
   border: 0;
   background: transparent;

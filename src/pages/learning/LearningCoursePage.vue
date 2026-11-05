@@ -157,9 +157,17 @@ watch(() => route.params.slug, load)
             <div class="learn-course__bar" aria-hidden="true">
               <span :style="{ width: `${Math.min(100, Number(progress.percent || 0))}%` }" />
             </div>
-            <p v-if="course.certificate" class="learn-course__certificate">
-              {{ t('certificateIssued') }} · {{ course.certificate.certificate_number }}
-            </p>
+            <div v-if="course.certificate" class="learn-course__certificate">
+              <p>
+                {{ t('certificateIssued') }} · {{ course.certificate.certificate_number }}
+              </p>
+              <router-link
+                class="learn-course__cert-link"
+                :to="{ name: 'certificate-view', params: { id: course.certificate.id } }"
+              >
+                {{ t('viewCertificate') }}
+              </router-link>
+            </div>
           </div>
 
           <button
@@ -374,10 +382,29 @@ watch(() => route.params.slug, load)
 }
 
 .learn-course__certificate {
+  display: grid;
+  gap: 0.35rem;
   margin: 0.15rem 0 0;
   font-size: 0.78rem;
   font-weight: 700;
   color: #d7f5e8;
+}
+
+.learn-course__certificate p {
+  margin: 0;
+}
+
+.learn-course__cert-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  width: fit-content;
+  color: #102a2e;
+  background: #f5c518;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  text-decoration: none;
+  font-weight: 800;
 }
 
 .learn-course__continue {

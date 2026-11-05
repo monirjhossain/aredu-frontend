@@ -18,6 +18,7 @@ const form = ref({
   instructions: '',
   duration_minutes: 60,
   is_published: false,
+  is_free_sample: false,
 })
 const loading = ref(false)
 const saving = ref(false)
@@ -40,6 +41,7 @@ async function load() {
       instructions: item.instructions || '',
       duration_minutes: Math.round((item.duration_seconds || 3600) / 60),
       is_published: item.is_published,
+      is_free_sample: !!item.is_free_sample,
     }
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')
@@ -58,6 +60,7 @@ async function save() {
     instructions: form.value.instructions || null,
     duration_seconds: Math.max(1, Number(form.value.duration_minutes) || 60) * 60,
     is_published: form.value.is_published,
+    is_free_sample: form.value.is_free_sample,
   }
   try {
     if (isEdit.value) {
@@ -147,6 +150,11 @@ async function save() {
           <input v-model="form.is_published" type="checkbox">
           {{ t('published') }}
         </label>
+        <label class="admin-ui__switch">
+          <input v-model="form.is_free_sample" type="checkbox">
+          {{ t('freeSampleMock') }}
+        </label>
+        <p class="admin-ui__hint">{{ t('freeSampleMockHint') }}</p>
 
         <div class="admin-ui__form-actions">
           <button

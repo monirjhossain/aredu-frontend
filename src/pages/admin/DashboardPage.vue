@@ -99,6 +99,7 @@ const quickLinks = computed(() => [
   { to: { name: 'admin-finance' }, icon: 'mdi-cash-multiple', label: t('manageFinance'), show: auth.hasPermission('payments.manage') },
   { to: { name: 'admin-accounts' }, icon: 'mdi-account-circle-outline', label: t('manageAccounts'), show: auth.hasPermission('users.manage') },
   { to: { name: 'admin-payments' }, icon: 'mdi-credit-card-outline', label: t('managePayments'), show: auth.hasPermission('payments.manage') },
+  { to: { name: 'admin-coupons' }, icon: 'mdi-ticket-percent-outline', label: t('manageCoupons'), show: auth.hasPermission('payments.manage') },
   {
     to: { name: 'admin-reports' },
     icon: 'mdi-chart-box-outline',

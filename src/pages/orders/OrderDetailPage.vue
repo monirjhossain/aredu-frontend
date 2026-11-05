@@ -22,9 +22,12 @@ const startingSsl = ref(false)
 
 const isPending = computed(() => order.value?.status === 'pending')
 const isPaid = computed(() => order.value?.status === 'paid')
+const isZeroTotal = computed(() => Number(order.value?.total ?? 0) <= 0.009)
+const settlingFree = ref(false)
 
 const leadText = computed(() => {
   if (isPaid.value) return t('orderDetailLeadPaid')
+  if (isPending.value && isZeroTotal.value) return t('orderDetailLeadFree')
   if (isPending.value) return t('orderDetailLeadPending')
   return t('orderDetailLead')
 })
@@ -44,7 +47,7 @@ async function load() {
 }
 
 async function paySslcommerz() {
-  if (!order.value?.id || startingSsl.value) return
+  if (!order.value?.id || startingSsl.value || isZeroTotal.value) return
   startingSsl.value = true
   try {
     const { data } = await http.post(
@@ -62,6 +65,24 @@ async function paySslcommerz() {
     ui.toastError(apiError(error).message || t('requestFailed'))
   } finally {
     startingSsl.value = false
+  }
+}
+
+async function settleFree() {
+  if (!order.value?.id || settlingFree.value || !isZeroTotal.value) return
+  settlingFree.value = true
+  try {
+    const { data } = await http.post(
+      `/orders/${order.value.id}/payments/free`,
+      {},
+      { skipErrorToast: true, skipSuccessToast: true },
+    )
+    order.value = data.data
+    ui.success(t('freeOrderActivated'))
+  } catch (error) {
+    ui.toastError(apiError(error).message || t('requestFailed'))
+  } finally {
+    settlingFree.value = false
   }
 }
 
@@ -100,6 +121,7 @@ function gatewayLabel(value) {
   const key = String(value || '').toLowerCase()
   if (key === 'bkash') return t('gatewayBkash')
   if (key === 'sslcommerz') return t('gatewaySslcommerz')
+  if (key === 'free') return t('gatewayFree')
   return value || '—'
 }
 
@@ -159,7 +181,21 @@ watch(() => route.params.id, load)
           </dl>
         </div>
 
-        <div v-if="isPending" class="order-detail__cta-box">
+        <div v-if="isPending && isZeroTotal" class="order-detail__cta-box order-detail__cta-box--ok">
+          <p>{{ t('freeOrderUnlock') }}</p>
+          <div class="order-detail__pay-row">
+            <button
+              type="button"
+              class="order-detail__pay"
+              :disabled="settlingFree"
+              @click="settleFree"
+            >
+              {{ settlingFree ? t('loading') : t('activateFreeAccess') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-else-if="isPending" class="order-detail__cta-box">
           <p>{{ t('payToUnlock') }}</p>
           <div class="order-detail__pay-row">
             <button type="button" class="order-detail__pay" @click="showBkash = true">
@@ -235,8 +271,18 @@ watch(() => route.params.id, load)
         </div>
 
         <div v-if="!(order.payments || []).length" class="order-detail__empty">
-          <p>{{ t('noPaymentsYet') }}</p>
-          <div v-if="isPending" class="order-detail__pay-row">
+          <p>{{ isPending && isZeroTotal ? t('freeOrderUnlock') : t('noPaymentsYet') }}</p>
+          <div v-if="isPending && isZeroTotal" class="order-detail__pay-row">
+            <button
+              type="button"
+              class="order-detail__pay"
+              :disabled="settlingFree"
+              @click="settleFree"
+            >
+              {{ settlingFree ? t('loading') : t('activateFreeAccess') }}
+            </button>
+          </div>
+          <div v-else-if="isPending" class="order-detail__pay-row">
             <button type="button" class="order-detail__pay" @click="showBkash = true">
               {{ t('payBkash') }}
             </button>

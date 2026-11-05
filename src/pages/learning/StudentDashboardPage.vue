@@ -73,8 +73,11 @@ const summaryCards = computed(() => [
 ])
 
 const quickLinks = computed(() => [
+  { to: { name: 'skill-analytics' }, label: t('skillAnalytics'), icon: 'mdi-chart-timeline-variant' },
   { to: { name: 'my-courses' }, label: t('myCourses'), icon: 'mdi-bookshelf' },
+  { to: { name: 'cart' }, label: t('shoppingCart'), icon: 'mdi-cart-outline' },
   { to: { name: 'orders' }, label: t('myOrders'), icon: 'mdi-receipt-text' },
+  { to: { name: 'full-mocks' }, label: t('fullMockExams'), icon: 'mdi-clipboard-text-clock-outline' },
   { to: { name: 'reading-tests' }, label: t('readingTests'), icon: 'mdi-book-open-blank-variant' },
   { to: { name: 'listening-tests' }, label: t('listeningTests'), icon: 'mdi-headphones' },
   { to: { name: 'writing-tasks' }, label: t('writingTasks'), icon: 'mdi-pencil-outline' },

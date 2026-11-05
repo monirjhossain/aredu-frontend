@@ -564,9 +564,15 @@ watch(() => [route.params.slug, route.params.lessonId], load)
           <div class="lesson-player__bar" aria-hidden="true">
             <span :style="{ width: `${Math.min(100, progressPercent)}%` }" />
           </div>
-          <p v-if="certificate" class="lesson-player__cert">
-            {{ t('certificateIssued') }} · {{ certificate.certificate_number }}
-          </p>
+          <div v-if="certificate" class="lesson-player__cert">
+            <p>{{ t('certificateIssued') }} · {{ certificate.certificate_number }}</p>
+            <router-link
+              class="lesson-player__cert-link"
+              :to="{ name: 'certificate-view', params: { id: certificate.id } }"
+            >
+              {{ t('viewCertificate') }}
+            </router-link>
+          </div>
         </div>
       </section>
 
@@ -1154,10 +1160,29 @@ watch(() => [route.params.slug, route.params.lessonId], load)
 }
 
 .lesson-player__cert {
+  display: grid;
+  gap: 0.35rem;
   margin: 0;
   color: #0f5c66;
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.lesson-player__cert p {
+  margin: 0;
+}
+
+.lesson-player__cert-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: #0f5c66;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
 }
 
 .lesson-player__playlist {

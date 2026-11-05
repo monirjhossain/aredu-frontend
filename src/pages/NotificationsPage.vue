@@ -45,7 +45,9 @@ async function markOne(item) {
       // ignore
     }
   }
-  if (item.url) router.push(item.url)
+  if (!item.url) return
+  // Support absolute app paths with query (e.g. full-mock context_key + session).
+  router.push(item.url)
 }
 
 async function markAll() {
