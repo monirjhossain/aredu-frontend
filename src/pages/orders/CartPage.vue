@@ -59,16 +59,18 @@ async function checkout() {
     const orderedIds = (order.items || []).map((item) => item.course_id).filter(Boolean)
     cart.removeMany(orderedIds.length ? orderedIds : cart.courseIds)
 
-    if (order.status === 'paid' || Number(order.total) <= 0.009) {
+    if (order.status === 'paid') {
       ui.success(t('freeOrderActivated'))
       router.push({ name: 'my-courses' })
       return
     }
 
-    ui.success(t('orderCreatedPayFromOrders', {
-      number: order.order_number,
-      total: order.total,
-    }))
+    ui.success(Number(order.total) <= 0.009
+      ? t('orderCreatedAwaitAdmin', { number: order.order_number })
+      : t('orderCreatedPayFromOrders', {
+        number: order.order_number,
+        total: order.total,
+      }))
     router.push({ name: 'order-detail', params: { id: order.id } })
   } catch (error) {
     message.value = apiError(error).message || t('requestFailed')

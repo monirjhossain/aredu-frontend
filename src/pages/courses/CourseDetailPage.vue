@@ -41,6 +41,7 @@ const loading = ref(true)
 const message = ref('')
 const purchaseNote = ref('')
 const purchasing = ref(false)
+const couponCode = ref('')
 const openSections = ref([])
 const relatedTrack = ref(null)
 
@@ -176,6 +177,7 @@ async function load() {
   loading.value = !cached
   message.value = ''
   purchaseNote.value = ''
+  couponCode.value = ''
   relatedCourses.value = []
   if (cached) {
     course.value = cached
@@ -225,10 +227,13 @@ async function purchase() {
   purchaseNote.value = ''
   message.value = ''
   try {
-    const { data } = await http.post('/orders', { course_ids: [course.value.id] }, { skipErrorToast: true })
+    const payload = { course_ids: [course.value.id] }
+    const code = couponCode.value.trim()
+    if (code) payload.coupon_code = code
+    const { data } = await http.post('/orders', payload, { skipErrorToast: true })
     const order = data.data
     cart.remove(course.value.id)
-    if (order.status === 'paid' || Number(order.total) <= 0.009) {
+    if (order.status === 'paid') {
       purchaseNote.value = t('freeOrderActivated')
       ui.success(purchaseNote.value)
       course.value = { ...course.value, is_enrolled: true }
@@ -236,10 +241,12 @@ async function purchase() {
       router.push({ name: 'learning-course', params: { slug } })
       return
     }
-    purchaseNote.value = t('orderCreatedPayFromOrders', {
-      number: order.order_number,
-      total: order.total,
-    })
+    purchaseNote.value = Number(order.total) <= 0.009
+      ? t('orderCreatedAwaitAdmin', { number: order.order_number })
+      : t('orderCreatedPayFromOrders', {
+        number: order.order_number,
+        total: order.total,
+      })
     ui.success(purchaseNote.value)
     router.push({ name: 'order-detail', params: { id: order.id } })
   } catch (error) {
@@ -365,6 +372,17 @@ watch(() => route.params.slug, () => {
               </router-link>
             </template>
             <template v-else>
+              <label class="site-buy__coupon">
+                <span>{{ t('couponCode') }}</span>
+                <input
+                  v-model="couponCode"
+                  type="text"
+                  maxlength="50"
+                  :placeholder="t('couponCodePlaceholder')"
+                  autocomplete="off"
+                  :disabled="purchasing"
+                >
+              </label>
               <div class="site-buy__actions">
                 <button
                   type="button"
@@ -781,6 +799,31 @@ watch(() => route.params.slug, () => {
   color: #146c43;
   font-weight: 700;
   font-size: 0.92rem;
+}
+
+.site-buy__coupon {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.site-buy__coupon input {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.site-buy__coupon input:disabled {
+  opacity: 0.7;
 }
 
 .site-buy__actions {
