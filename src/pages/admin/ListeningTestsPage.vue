@@ -206,8 +206,13 @@ function openEdit(item) {
                     <div>
                       <strong>{{ item.title }}</strong>
                       <small v-if="item.slug">/{{ item.slug }}</small>
-                      <div v-if="item.is_free_sample" class="admin-ui__chips">
-                        <span class="admin-ui__chip admin-ui__chip--ok">{{ t('freeSampleBadge') }}</span>
+                      <div class="admin-ui__chips">
+                        <span
+                          class="admin-ui__chip"
+                          :class="item.is_free_sample ? 'admin-ui__chip--ok' : 'admin-ui__chip--premium'"
+                        >
+                          {{ item.is_free_sample ? t('freeSampleBadge') : t('premiumBadge') }}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -286,8 +291,11 @@ function openEdit(item) {
                   <span class="admin-ui__chip">{{ examLabel(item.exam_type) }}</span>
                   <span class="admin-ui__chip">{{ durationLabel(item.duration_seconds) }}</span>
                   <span class="admin-ui__chip">{{ t('sections') }} {{ item.sections_count ?? 0 }}</span>
-                  <span v-if="item.is_free_sample" class="admin-ui__chip admin-ui__chip--ok">
-                    {{ t('freeSampleBadge') }}
+                  <span
+                    class="admin-ui__chip"
+                    :class="item.is_free_sample ? 'admin-ui__chip--ok' : 'admin-ui__chip--premium'"
+                  >
+                    {{ item.is_free_sample ? t('freeSampleBadge') : t('premiumBadge') }}
                   </span>
                 </div>
               </div>

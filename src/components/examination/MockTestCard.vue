@@ -24,6 +24,10 @@ defineProps({
     type: String,
     default: '',
   },
+  premiumLabel: {
+    type: String,
+    default: '',
+  },
   ctaLabel: {
     type: String,
     required: true,
@@ -39,8 +43,11 @@ defineProps({
   <article class="student-ui__card">
     <div class="student-ui__card-top">
       <div class="student-ui__card-badges">
-        <span v-if="freeSample" class="student-ui__badge student-ui__badge--free">
-          {{ freeSampleLabel }}
+        <span
+          class="student-ui__badge"
+          :class="freeSample ? 'student-ui__badge--free' : 'student-ui__badge--premium'"
+        >
+          {{ freeSample ? (freeSampleLabel || 'Free') : (premiumLabel || 'Premium') }}
         </span>
         <span v-for="(badge, index) in badges" :key="`${badge}-${index}`" class="student-ui__badge">
           {{ badge }}

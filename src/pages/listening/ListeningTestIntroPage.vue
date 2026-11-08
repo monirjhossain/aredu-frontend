@@ -86,8 +86,11 @@ async function start() {
       <header class="rmock-intro__hero">
         <div class="rmock-intro__hero-copy">
           <div class="rmock-intro__badges">
-            <span v-if="test.is_free_sample" class="rmock-intro__badge rmock-intro__badge--free">
-              {{ t('freeSampleBadge') }}
+            <span
+              class="rmock-intro__badge"
+              :class="test.is_free_sample ? 'rmock-intro__badge--free' : 'rmock-intro__badge--premium'"
+            >
+              {{ test.is_free_sample ? t('freeSampleBadge') : t('premiumBadge') }}
             </span>
             <span class="rmock-intro__badge">{{ examLabel }}</span>
             <span class="rmock-intro__badge">{{ minutes }}</span>
@@ -258,6 +261,11 @@ async function start() {
 .rmock-intro__badge--free {
   background: var(--yellow);
   color: #fff;
+}
+
+.rmock-intro__badge--premium {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f5c66;
 }
 
 .rmock-intro__eyebrow {

@@ -103,7 +103,12 @@ async function start() {
             >
               {{ t('minutesCount', { count: totalMinutes }) }}
             </span>
-            <span v-if="exam.is_free" class="student-ui__badge student-ui__badge--free">{{ t('fullMockFreeBadge') }}</span>
+            <span
+              class="student-ui__badge"
+              :class="exam.is_free ? 'student-ui__badge--free' : 'student-ui__badge--premium'"
+            >
+              {{ exam.is_free ? t('freeSampleBadge') : t('premiumBadge') }}
+            </span>
           </div>
         </div>
       </header>

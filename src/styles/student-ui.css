@@ -204,6 +204,11 @@
   color: var(--student-yellow-ink);
 }
 
+.student-ui__badge--premium {
+  background: #0f5c66;
+  color: #fff;
+}
+
 .student-ui__card-meta {
   color: var(--student-muted);
   font-size: 0.78rem;

@@ -180,9 +180,14 @@ function edit(item) {
               <p class="admin-ui__row-meta">
                 {{ typeLabel(item.exam_type) }}
                 · {{ t('fullMockSectionsCount', { count: item.sections_count }) }}
-                <template v-if="item.is_free"> · {{ t('fullMockFreeBadge') }}</template>
               </p>
               <div class="admin-ui__chips">
+                <span
+                  class="admin-ui__chip"
+                  :class="item.is_free ? 'admin-ui__chip--ok' : 'admin-ui__chip--premium'"
+                >
+                  {{ item.is_free ? t('freeSampleBadge') : t('premiumBadge') }}
+                </span>
                 <span class="admin-ui__chip" :class="item.is_published ? 'admin-ui__chip--ok' : 'admin-ui__chip--warn'">
                   {{ item.is_published ? t('published') : t('unpublished') }}
                 </span>

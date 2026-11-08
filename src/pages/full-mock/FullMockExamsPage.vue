@@ -128,7 +128,8 @@ function examLabel(type) {
             :meta="t('fullMockSectionsCount', { count: item.sections_count })"
             :badges="[examLabel(item.exam_type)]"
             :free-sample="Boolean(item.is_free)"
-            :free-sample-label="t('fullMockFreeBadge')"
+            :free-sample-label="t('freeSampleBadge')"
+            :premium-label="t('premiumBadge')"
             :cta-label="t('openFullMock')"
             :to="{ name: 'full-mock-intro', params: { slug: item.slug } }"
           />

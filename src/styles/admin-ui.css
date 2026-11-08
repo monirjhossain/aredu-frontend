@@ -442,6 +442,12 @@
   color: #c2410c;
 }
 
+.admin-ui__chip--premium {
+  background: rgba(15, 92, 102, 0.12);
+  border-color: transparent;
+  color: #0f5c66;
+}
+
 .admin-ui__row-actions {
   display: flex;
   flex-wrap: wrap;

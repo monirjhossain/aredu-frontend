@@ -120,6 +120,7 @@ function examLabel(type) {
             :badges="[examLabel(item.exam_type)]"
             :free-sample="Boolean(item.is_free_sample)"
             :free-sample-label="t('freeSampleBadge')"
+            :premium-label="t('premiumBadge')"
             :cta-label="t('openListeningTest')"
             :to="{ name: 'listening-test-intro', params: { slug: item.slug } }"
           />
