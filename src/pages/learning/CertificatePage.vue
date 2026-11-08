@@ -177,7 +177,7 @@ function backToCourse() {
 
 .cert-sheet {
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.18), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.18), transparent 42%),
     linear-gradient(165deg, #f7fbfb 0%, #eef6f6 55%, #f8faf9 100%);
   border: 1px solid rgba(15, 92, 102, 0.18);
   border-radius: 1rem;

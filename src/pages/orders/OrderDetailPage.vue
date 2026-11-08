@@ -302,7 +302,7 @@ watch(() => route.params.id, load)
   padding: 1.15rem 1.2rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.22), transparent 42%),
     linear-gradient(135deg, #0b3d36 0%, #0f5c66 55%, #0a2a3a 100%);
   color: #fff;
 }
@@ -466,7 +466,7 @@ watch(() => route.params.id, load)
   padding: 0.95rem;
   border-radius: 0.85rem;
   background: linear-gradient(160deg, #fff7e8, #fff);
-  border: 1px solid rgba(245, 197, 24, 0.45);
+  border: 1px solid rgba(229, 76, 16, 0.45);
 }
 
 .order-detail__cta-box--ok {

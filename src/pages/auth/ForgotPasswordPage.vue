@@ -78,7 +78,7 @@ async function submit() {
 .auth {
   --ink: #0b1b34;
   --muted: #5b6b7c;
-  --yellow: #f5c518;
+  --yellow: #e54c10;
   --line: #e6ebf2;
   min-height: calc(100vh - 64px);
   min-height: calc(100dvh - 64px);
@@ -86,7 +86,7 @@ async function submit() {
   place-items: center;
   padding: 1.5rem 1rem 2.5rem;
   background:
-    radial-gradient(circle at 20% 0%, rgba(245, 197, 24, 0.18), transparent 40%),
+    radial-gradient(circle at 20% 0%, rgba(229, 76, 16, 0.18), transparent 40%),
     linear-gradient(180deg, #eaf2ff 0%, #f7f9fc 45%, #ffffff 100%);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
   color: var(--ink);
@@ -200,7 +200,7 @@ async function submit() {
   border: 0;
   border-radius: 0.65rem;
   background: var(--yellow);
-  color: #1a1400;
+  color: #fff;
   font: inherit;
   font-weight: 800;
   cursor: pointer;

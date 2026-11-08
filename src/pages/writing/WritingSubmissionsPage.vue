@@ -195,7 +195,7 @@ function evalLabel(item) {
   padding: 1.2rem 1.25rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.22), transparent 42%),
     linear-gradient(135deg, #0b3d36 0%, #0f5c66 55%, #0a2a3a 100%);
   color: #fff;
 }
@@ -238,8 +238,8 @@ function evalLabel(item) {
   min-height: 44px;
   padding: 0 1rem;
   border-radius: 0.65rem;
-  background: #f5c518;
-  color: #1a1400;
+  background: #e54c10;
+  color: #fff;
   text-decoration: none;
   font-weight: 800;
   width: fit-content;
@@ -317,7 +317,7 @@ function evalLabel(item) {
 }
 
 .wmock-results__chip.is-draft {
-  background: rgba(245, 197, 24, 0.2);
+  background: rgba(229, 76, 16, 0.2);
   color: #7a5b00;
 }
 

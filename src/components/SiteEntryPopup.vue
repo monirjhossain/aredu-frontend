@@ -16,6 +16,7 @@ const popup = ref({
   body: '',
   cta_label: '',
   cta_url: '/courses',
+  image_url: null,
 })
 
 const ctaLabel = computed(() => popup.value.cta_label || t('browseCourses'))
@@ -63,6 +64,7 @@ async function loadPopup() {
       body: entry.body || '',
       cta_label: entry.cta_label || '',
       cta_url: entry.cta_url || '/courses',
+      image_url: entry.image_url || null,
     }
     open.value = true
   } catch {
@@ -92,6 +94,9 @@ watch(open, (value) => {
         <button type="button" class="entry-pop__close" :aria-label="t('close')" @click="close">
           <v-icon icon="mdi-close" size="20" />
         </button>
+        <div v-if="popup.image_url" class="entry-pop__media">
+          <img :src="popup.image_url" :alt="popup.title || t('sitePopupTitle')">
+        </div>
         <p class="entry-pop__kicker">{{ t('landingNewBadge') }}</p>
         <h2>{{ popup.title }}</h2>
         <p v-if="popup.body" class="entry-pop__body">{{ popup.body }}</p>
@@ -136,16 +141,32 @@ watch(open, (value) => {
   padding: 1.35rem 1.25rem 1.2rem;
   border-radius: 1.1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.22), transparent 42%),
     #fff;
   box-shadow: 0 24px 60px rgba(8, 28, 34, 0.28);
   animation: entry-pop-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entry-pop__media {
+  margin: -1.35rem -1.25rem 1rem;
+  overflow: hidden;
+  border-radius: 1.1rem 1.1rem 0 0;
+  background: #0f5c66;
+  aspect-ratio: 16 / 9;
+}
+
+.entry-pop__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .entry-pop__close {
   position: absolute;
   top: 0.7rem;
   right: 0.7rem;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -153,9 +174,10 @@ watch(open, (value) => {
   height: 2.25rem;
   border: 0;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.92);
   color: #374151;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(8, 28, 34, 0.16);
 }
 
 .entry-pop__kicker {
@@ -201,9 +223,9 @@ watch(open, (value) => {
 }
 
 .entry-pop__btn--primary {
-  background: #f5c518;
-  color: #1a1400;
-  box-shadow: 0 8px 18px rgba(245, 197, 24, 0.28);
+  background: #e54c10;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(229, 76, 16, 0.28);
 }
 
 .entry-pop__btn--ghost {

@@ -42,6 +42,7 @@ const message = ref('')
 const purchaseNote = ref('')
 const purchasing = ref(false)
 const couponCode = ref('')
+const showCoupon = ref(false)
 const openSections = ref([])
 const relatedTrack = ref(null)
 
@@ -55,12 +56,6 @@ const brandName = computed(() => branding.value.platform_name || t('appName'))
 const lessonCount = computed(() => {
   if (!course.value?.sections) return 0
   return course.value.sections.reduce((sum, section) => sum + (section.lessons?.length || 0), 0)
-})
-
-const learnersLabel = computed(() => {
-  const count = course.value?.learners_count
-  if (count == null || count === '') return ''
-  return t('learnersCount', { count: formatInt(count) })
 })
 
 const classStartLabel = computed(() => {
@@ -178,6 +173,7 @@ async function load() {
   message.value = ''
   purchaseNote.value = ''
   couponCode.value = ''
+  showCoupon.value = false
   relatedCourses.value = []
   if (cached) {
     course.value = cached
@@ -291,7 +287,7 @@ watch(() => route.params.slug, () => {
     </div>
 
     <div v-if="loading" class="site-wrap">
-      <v-progress-linear indeterminate color="#f5c518" />
+      <v-progress-linear indeterminate color="#e54c10" />
     </div>
     <div v-else-if="message" class="site-wrap">
       <v-alert type="error" variant="tonal">{{ message }}</v-alert>
@@ -323,30 +319,6 @@ watch(() => route.params.slug, () => {
           </div>
 
           <aside class="site-buy">
-            <div v-if="learnersLabel || classStartLabel" class="site-buy__topmeta">
-              <div v-if="learnersLabel" class="site-buy__learners">
-                <span class="site-buy__avatars" aria-hidden="true">
-                  <span /><span /><span />
-                </span>
-                <span>{{ learnersLabel }}</span>
-              </div>
-              <span v-if="classStartLabel" class="site-buy__start">
-                <span class="site-buy__start-dot" aria-hidden="true" />
-                {{ classStartLabel }}
-              </span>
-            </div>
-
-            <div v-if="batchLabel || seatsLabel" class="site-buy__chips">
-              <span v-if="batchLabel" class="site-buy__chip">
-                <v-icon size="14" icon="mdi-file-document-outline" />
-                {{ batchLabel }}
-              </span>
-              <span v-if="seatsLabel" class="site-buy__chip">
-                <v-icon size="14" icon="mdi-seat" />
-                {{ seatsLabel }}
-              </span>
-            </div>
-
             <div class="site-buy__prices">
               <div class="site-buy__price-main">
                 <strong>{{ money(price, currency) }}</strong>
@@ -355,12 +327,12 @@ watch(() => route.params.slug, () => {
               <span v-if="off" class="site-buy__off">{{ off }}% {{ t('landingOff') }}</span>
             </div>
 
-            <div v-if="offerLabel" class="site-buy__offer">
-              <v-icon size="15" icon="mdi-timer-sand" />
-              <span>{{ offerLabel }}</span>
-            </div>
-
-            <p class="site-buy__note">{{ t('lifetimeAccessHint') }}</p>
+            <p v-if="classStartLabel || batchLabel || seatsLabel || offerLabel" class="site-buy__meta">
+              <template v-if="classStartLabel">{{ classStartLabel }}</template>
+              <template v-if="batchLabel"><span aria-hidden="true"> · </span>{{ batchLabel }}</template>
+              <template v-if="seatsLabel"><span aria-hidden="true"> · </span>{{ seatsLabel }}</template>
+              <template v-if="offerLabel"><span aria-hidden="true"> · </span>{{ offerLabel }}</template>
+            </p>
 
             <template v-if="course.is_enrolled">
               <div class="site-buy__enrolled">{{ t('alreadyEnrolled') }}</div>
@@ -372,17 +344,6 @@ watch(() => route.params.slug, () => {
               </router-link>
             </template>
             <template v-else>
-              <label class="site-buy__coupon">
-                <span>{{ t('couponCode') }}</span>
-                <input
-                  v-model="couponCode"
-                  type="text"
-                  maxlength="50"
-                  :placeholder="t('couponCodePlaceholder')"
-                  autocomplete="off"
-                  :disabled="purchasing"
-                >
-              </label>
               <div class="site-buy__actions">
                 <button
                   type="button"
@@ -392,21 +353,42 @@ watch(() => route.params.slug, () => {
                 >
                   {{ purchasing ? t('loading') : (auth.isAuthenticated ? t('purchase') : t('loginToPurchase')) }}
                 </button>
-                <button
-                  v-if="!inCart"
-                  type="button"
-                  class="site-btn site-btn--ghost"
-                  @click="addToCart"
+
+                <div class="site-buy__secondary">
+                  <button
+                    v-if="!inCart"
+                    type="button"
+                    class="site-buy__link"
+                    @click="addToCart"
+                  >
+                    {{ t('addToCart') }}
+                  </button>
+                  <router-link
+                    v-else
+                    class="site-buy__link"
+                    :to="{ name: 'cart' }"
+                  >
+                    {{ t('viewCart') }}
+                  </router-link>
+                  <button
+                    type="button"
+                    class="site-buy__link"
+                    @click="showCoupon = !showCoupon"
+                  >
+                    {{ showCoupon ? t('hideCoupon') : t('haveCoupon') }}
+                  </button>
+                </div>
+
+                <input
+                  v-if="showCoupon"
+                  v-model="couponCode"
+                  class="site-buy__coupon-input"
+                  type="text"
+                  maxlength="50"
+                  :placeholder="t('couponCodePlaceholder')"
+                  autocomplete="off"
+                  :disabled="purchasing"
                 >
-                  {{ t('addToCart') }}
-                </button>
-                <router-link
-                  v-else
-                  class="site-btn site-btn--ghost"
-                  :to="{ name: 'cart' }"
-                >
-                  {{ t('viewCart') }}
-                </router-link>
               </div>
               <p v-if="purchaseNote" class="site-buy__info">{{ purchaseNote }}</p>
             </template>
@@ -519,7 +501,7 @@ watch(() => route.params.slug, () => {
 .site {
   --ink: #0b1b34;
   --muted: #5b6b7c;
-  --yellow: #f5c518;
+  --yellow: #e54c10;
   --line: #e6ebf2;
   --paper: #f7f9fc;
   color: var(--ink);
@@ -529,8 +511,14 @@ watch(() => route.params.slug, () => {
 }
 
 .site-wrap {
-  width: min(960px, calc(100% - 2rem));
+  width: min(960px, calc(100% - 1.5rem));
   margin: 0 auto;
+}
+
+@media (min-width: 480px) {
+  .site-wrap {
+    width: min(960px, calc(100% - 2rem));
+  }
 }
 
 .site-top {
@@ -548,13 +536,25 @@ watch(() => route.params.slug, () => {
 }
 
 .site-hero {
-  padding: 1.25rem 0 2.5rem;
+  padding: 1rem 0 1.75rem;
   background: linear-gradient(180deg, #eaf2ff 0%, #ffffff 70%);
+}
+
+@media (min-width: 768px) {
+  .site-hero {
+    padding: 1.25rem 0 2.5rem;
+  }
 }
 
 .site-hero__grid {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .site-hero__grid {
+    gap: 1.25rem;
+  }
 }
 
 @media (min-width: 980px) {
@@ -566,7 +566,7 @@ watch(() => route.params.slug, () => {
 
 .site-hero__media {
   position: relative;
-  min-height: 240px;
+  min-height: clamp(180px, 48vw, 240px);
   border-radius: 1.1rem;
   overflow: hidden;
   background:
@@ -615,17 +615,18 @@ watch(() => route.params.slug, () => {
 
 .site-hero__copy h1 {
   margin: 0 0 0.75rem;
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  font-size: clamp(1.45rem, 6vw, 2.4rem);
   line-height: 1.15;
   letter-spacing: -0.03em;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .site-lead {
   margin: 0 0 1rem;
   color: var(--muted);
   line-height: 1.6;
-  font-size: 1.02rem;
+  font-size: clamp(0.95rem, 2.8vw, 1.02rem);
 }
 
 .site-chips {
@@ -645,115 +646,40 @@ watch(() => route.params.slug, () => {
 }
 
 .site-buy {
-  padding: 1.15rem;
-  border-radius: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 0.9rem;
   background: #fff;
   border: 1px solid var(--line);
-  box-shadow: 0 14px 36px rgba(11, 27, 52, 0.08);
+  box-shadow: 0 10px 28px rgba(11, 27, 52, 0.07);
   display: grid;
-  gap: 0.75rem;
-  position: sticky;
-  top: 5rem;
+  gap: 0.7rem;
 }
 
-.site-buy__topmeta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-}
-
-.site-buy__learners {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #475467;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.site-buy__avatars {
-  display: inline-flex;
-  align-items: center;
-}
-
-.site-buy__avatars span {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  border: 1.5px solid #fff;
-  background: linear-gradient(135deg, #7dd3c7, #14919b);
-}
-
-.site-buy__avatars span + span {
-  margin-left: -0.28rem;
-}
-
-.site-buy__avatars span:nth-child(2) {
-  background: linear-gradient(135deg, #f5c518, #e8a317);
-}
-
-.site-buy__avatars span:nth-child(3) {
-  background: linear-gradient(135deg, #94a3b8, #64748b);
-}
-
-.site-buy__start {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.28rem 0.6rem;
-  border-radius: 999px;
-  background: #fff8e1;
-  color: #1f2a37;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.site-buy__start-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--yellow);
-  flex: 0 0 auto;
-}
-
-.site-buy__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.site-buy__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  min-height: 1.75rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 0.45rem;
-  background: #f3f5f8;
-  color: #475467;
-  font-size: 0.76rem;
-  font-weight: 700;
+@media (min-width: 980px) {
+  .site-buy {
+    position: sticky;
+    top: 5rem;
+  }
 }
 
 .site-buy__prices {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
 .site-buy__price-main {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 
 .site-buy__prices strong {
-  font-size: 1.55rem;
+  font-size: clamp(1.45rem, 5vw, 1.7rem);
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .site-buy__prices s {
@@ -762,57 +688,71 @@ watch(() => route.params.slug, () => {
 }
 
 .site-buy__off {
-  padding: 0.35rem 0.65rem 0.35rem 0.9rem;
-  background: var(--yellow);
-  color: #1a1400;
-  font-size: 0.78rem;
+  color: #8a6a00;
+  font-size: 0.82rem;
   font-weight: 800;
-  clip-path: polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 12px 75%, 0 50%, 12px 25%);
   white-space: nowrap;
 }
 
-.site-buy__offer {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 0.5rem;
-  background: #fff8e1;
-  color: #8a6a00;
-  font-size: 0.8rem;
-  font-weight: 700;
-  line-height: 1.35;
+.site-buy__meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
-.site-buy__note,
 .site-buy__info {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .site-buy__enrolled {
-  padding: 0.7rem 0.8rem;
-  border-radius: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
   background: #e8f8ef;
   color: #146c43;
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 
-.site-buy__coupon {
+.site-buy__actions {
   display: grid;
-  gap: 0.35rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 700;
+  gap: 0.65rem;
 }
 
-.site-buy__coupon input {
+.site-buy__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.45rem 0.85rem;
+}
+
+.site-buy__link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #0f5c66;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-buy__link:hover {
+  text-decoration: underline;
+}
+
+.site-buy__coupon-input {
   min-height: 44px;
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d0d5dd;
   border-radius: 0.55rem;
   padding: 0.55rem 0.75rem;
   font: inherit;
@@ -822,19 +762,8 @@ watch(() => route.params.slug, () => {
   box-sizing: border-box;
 }
 
-.site-buy__coupon input:disabled {
+.site-buy__coupon-input:disabled {
   opacity: 0.7;
-}
-
-.site-buy__actions {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.site-buy__actions .site-btn--ghost {
-  width: 100%;
-  min-height: 2.85rem;
-  font-size: inherit;
 }
 
 .site-btn {
@@ -859,28 +788,42 @@ watch(() => route.params.slug, () => {
 
 .site-btn--primary {
   width: 100%;
-  background: #f5c518;
-  color: #1a1400;
-  box-shadow: 0 10px 24px rgba(245, 197, 24, 0.28);
+  background: #e54c10;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(229, 76, 16, 0.28);
 }
 
 .site-btn--ghost {
-  min-height: 2.2rem;
+  min-height: 44px;
   padding: 0 0.75rem;
   background: #eef2f7;
   color: var(--ink);
   font-size: 0.82rem;
+  flex: 0 0 auto;
 }
 
 .site-section {
-  padding: 0 0 4rem;
+  padding: 0 0 3rem;
   background: var(--paper);
+}
+
+@media (min-width: 768px) {
+  .site-section {
+    padding: 0 0 4rem;
+  }
 }
 
 .site-split {
   display: grid;
-  gap: 2rem;
-  padding-top: 2rem;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .site-split {
+    gap: 2rem;
+    padding-top: 2rem;
+  }
 }
 
 @media (min-width: 980px) {
@@ -891,7 +834,7 @@ watch(() => route.params.slug, () => {
 
 .site-section h2 {
   margin: 0 0 0.75rem;
-  font-size: 1.35rem;
+  font-size: clamp(1.15rem, 3.5vw, 1.35rem);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -976,13 +919,21 @@ watch(() => route.params.slug, () => {
 
 .site-module summary {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.45rem 1rem;
   align-items: center;
-  padding: 1rem 1.05rem;
+  min-height: 44px;
+  padding: 0.9rem 0.95rem;
   cursor: pointer;
   font-weight: 750;
   list-style: none;
+}
+
+.site-module summary > span {
+  min-width: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
 }
 
 .site-module summary::-webkit-details-marker {
@@ -992,34 +943,65 @@ watch(() => route.params.slug, () => {
 .site-module summary small {
   color: var(--muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .site-module ul {
   margin: 0;
-  padding: 0 1.05rem 1.05rem;
+  padding: 0 0.85rem 0.95rem;
   list-style: none;
   display: grid;
   gap: 0.65rem;
 }
 
+@media (min-width: 768px) {
+  .site-module ul {
+    padding: 0 1.05rem 1.05rem;
+  }
+}
+
 .site-module li {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
   padding: 0.75rem 0.8rem;
   border-radius: 0.7rem;
   background: #f5f7fa;
 }
 
+@media (min-width: 640px) {
+  .site-module li {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
+.site-module li > div {
+  min-width: 0;
+}
+
 .site-module li strong {
   display: block;
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .site-module li span {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.site-module li .site-btn--ghost {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .site-module li .site-btn--ghost {
+    width: auto;
+  }
 }
 
 .site-module li em {
@@ -1032,7 +1014,13 @@ watch(() => route.params.slug, () => {
   background:
     radial-gradient(circle at top right, rgba(15, 92, 102, 0.06), transparent 42%),
     #f7f9fc;
-  padding: 2.25rem 0 2.75rem;
+  padding: 1.75rem 0 2.25rem;
+}
+
+@media (min-width: 768px) {
+  .site-related {
+    padding: 2.25rem 0 2.75rem;
+  }
 }
 
 .site-related__head {
@@ -1042,6 +1030,11 @@ watch(() => route.params.slug, () => {
   justify-content: space-between;
   gap: 0.85rem;
   margin-bottom: 1.15rem;
+}
+
+.site-related__head > div:first-child {
+  min-width: 0;
+  flex: 1 1 14rem;
 }
 
 .site-related__head h2 {

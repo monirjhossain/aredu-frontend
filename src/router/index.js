@@ -17,6 +17,7 @@ import RolesPage from '../pages/admin/RolesPage.vue'
 import DashboardPage from '../pages/admin/DashboardPage.vue'
 import ReportsPage from '../pages/admin/ReportsPage.vue'
 import SettingsPage from '../pages/admin/SettingsPage.vue'
+import ActivityLogsPage from '../pages/admin/ActivityLogsPage.vue'
 import CategoriesPage from '../pages/admin/CategoriesPage.vue'
 import CoursesPage from '../pages/admin/CoursesPage.vue'
 import CourseFormPage from '../pages/admin/CourseFormPage.vue'
@@ -117,7 +118,7 @@ const router = createRouter({
           meta: { titleKey: 'resetPassword', fullBleed: true },
         },
         { path: 'account', name: 'account', component: AccountPage, meta: { requiresAuth: true, titleKey: 'account' } },
-        { path: 'cart', name: 'cart', component: CartPage, meta: { titleKey: 'shoppingCart' } },
+        { path: 'cart', name: 'cart', component: CartPage, meta: { titleKey: 'shoppingCart', fullBleed: true } },
         { path: 'orders', name: 'orders', component: OrdersPage, meta: { requiresAuth: true, titleKey: 'myOrders' } },
         { path: 'orders/:id', name: 'order-detail', component: OrderDetailPage, meta: { requiresAuth: true, titleKey: 'orderDetails' } },
         { path: 'dashboard', name: 'student-dashboard', component: StudentDashboardPage, meta: { requiresAuth: true, studentOnly: true, titleKey: 'studentDashboard' } },
@@ -144,6 +145,7 @@ const router = createRouter({
         { path: 'admin', name: 'admin-dashboard', component: DashboardPage, meta: { requiresAuth: true, permission: 'reports.view', titleKey: 'adminDashboard' } },
         { path: 'admin/reports', name: 'admin-reports', component: ReportsPage, meta: { requiresAuth: true, anyPermission: ['reports.view', 'progress.view_assigned'], titleKey: 'reports' } },
         { path: 'admin/settings', name: 'admin-settings', component: SettingsPage, meta: { requiresAuth: true, permission: 'settings.manage', titleKey: 'settings' } },
+        { path: 'admin/activity-logs', name: 'admin-activity-logs', component: ActivityLogsPage, meta: { requiresAuth: true, permission: 'settings.manage', titleKey: 'activityLogs' } },
         { path: 'admin/orders', name: 'admin-orders', component: AdminOrdersPage, meta: { requiresAuth: true, permission: 'payments.manage', titleKey: 'manageOrders' } },
         { path: 'admin/finance', name: 'admin-finance', component: FinancePage, meta: { requiresAuth: true, permission: 'payments.manage', titleKey: 'manageFinance' } },
         { path: 'admin/payments', name: 'admin-payments', component: PaymentsPage, meta: { requiresAuth: true, permission: 'payments.manage', titleKey: 'managePayments' } },

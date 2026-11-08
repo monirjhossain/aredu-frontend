@@ -471,7 +471,7 @@ const dashboardLabel = computed(() => {
       <v-spacer />
       <v-btn
         :variant="localeStore.locale === 'en' ? 'flat' : 'text'"
-        :color="localeStore.locale === 'en' ? '#f5c518' : undefined"
+        :color="localeStore.locale === 'en' ? '#e54c10' : undefined"
         size="small"
         aria-label="English"
         @click="localeStore.setLocale('en')"
@@ -480,7 +480,7 @@ const dashboardLabel = computed(() => {
       </v-btn>
       <v-btn
         :variant="localeStore.locale === 'bn' ? 'flat' : 'text'"
-        :color="localeStore.locale === 'bn' ? '#f5c518' : undefined"
+        :color="localeStore.locale === 'bn' ? '#e54c10' : undefined"
         size="small"
         aria-label="Bangla"
         @click="localeStore.setLocale('bn')"
@@ -685,6 +685,12 @@ const dashboardLabel = computed(() => {
           />
           <v-list-item
             v-if="auth.hasPermission('settings.manage')"
+            :title="t('activityLogs')"
+            to="/admin/activity-logs"
+            prepend-icon="mdi-history"
+          />
+          <v-list-item
+            v-if="auth.hasPermission('settings.manage')"
             :title="t('settings')"
             to="/admin/settings"
             prepend-icon="mdi-cog"
@@ -827,7 +833,7 @@ const dashboardLabel = computed(() => {
 }
 
 .admin-bar :deep(.v-btn.v-btn--flat) {
-  color: #1a1400 !important;
+  color: #fff !important;
 }
 
 .admin-bar__account {
@@ -1056,9 +1062,9 @@ const dashboardLabel = computed(() => {
 }
 
 .student-side__link.is-active {
-  background: #f5c518;
-  color: #1a1400;
-  box-shadow: inset 3px 0 0 #e0b000;
+  background: #e54c10;
+  color: #fff;
+  box-shadow: inset 3px 0 0 #b33a0c;
 }
 
 .student-side__foot {

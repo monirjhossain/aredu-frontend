@@ -378,7 +378,7 @@ watch(() => route.params.slug, load)
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f5c518, #ffe08a);
+  background: linear-gradient(90deg, #e54c10, #ffe08a);
 }
 
 .learn-course__certificate {
@@ -400,7 +400,7 @@ watch(() => route.params.slug, load)
   min-height: 36px;
   width: fit-content;
   color: #102a2e;
-  background: #f5c518;
+  background: #e54c10;
   border-radius: 999px;
   padding: 0.35rem 0.85rem;
   text-decoration: none;
@@ -417,8 +417,8 @@ watch(() => route.params.slug, load)
   padding: 0 1.1rem;
   border: 0;
   border-radius: 0.65rem;
-  background: #f5c518;
-  color: #1a1400;
+  background: #e54c10;
+  color: #fff;
   font: inherit;
   font-size: 0.88rem;
   font-weight: 800;

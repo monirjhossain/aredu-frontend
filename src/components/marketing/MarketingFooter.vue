@@ -80,7 +80,7 @@ const logoSrc = computed(() => props.logoUrl || `${import.meta.env.BASE_URL}imag
   overflow: hidden;
   color: #e8eef5;
   background:
-    radial-gradient(circle at 12% 0%, rgba(245, 197, 24, 0.12), transparent 40%),
+    radial-gradient(circle at 12% 0%, rgba(229, 76, 16, 0.12), transparent 40%),
     linear-gradient(180deg, #0b1b34 0%, #081424 100%);
   font-family: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
 }
@@ -152,7 +152,7 @@ const logoSrc = computed(() => props.logoUrl || `${import.meta.env.BASE_URL}imag
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #f5c518;
+  color: #e54c10;
 }
 
 .mkt-footer__col a,
@@ -169,7 +169,7 @@ const logoSrc = computed(() => props.logoUrl || `${import.meta.env.BASE_URL}imag
 }
 
 .mkt-footer__mail {
-  color: #f5c518 !important;
+  color: #e54c10 !important;
   font-weight: 700;
   word-break: break-word;
 }

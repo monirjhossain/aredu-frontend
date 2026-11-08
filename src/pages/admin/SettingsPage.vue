@@ -9,7 +9,6 @@ import { apiError } from '../../utils/apiError'
 const { t } = useI18n()
 const ui = useUiStore()
 
-const tab = ref('settings')
 const loading = ref(true)
 const saving = ref(false)
 const uploading = ref(false)
@@ -43,18 +42,17 @@ const settings = reactive({
     body: '',
     cta_label: '',
     cta_url: '/courses',
+    image_url: null,
   },
 })
 
-const logs = ref([])
-const logMeta = ref({ current_page: 1, last_page: 1, total: 0 })
-const logPage = ref(1)
-const logAction = ref('')
-const logLoading = ref(false)
 const logoFile = ref(null)
 const bkashQrFile = ref(null)
 const uploadingQr = ref(false)
 const removingQr = ref(false)
+const popupImageFile = ref(null)
+const uploadingPopupImage = ref(false)
+const removingPopupImage = ref(false)
 
 onMounted(async () => {
   await loadSettings()
@@ -101,6 +99,7 @@ function applySettings(payload) {
     body: payload.entry_popup?.body || '',
     cta_label: payload.entry_popup?.cta_label || '',
     cta_url: payload.entry_popup?.cta_url || '/courses',
+    image_url: payload.entry_popup?.image_url || null,
   }
 }
 
@@ -212,41 +211,51 @@ async function removeBkashQr() {
   }
 }
 
-async function loadLogs() {
-  logLoading.value = true
-  message.value = ''
+async function uploadPopupImage() {
+  const file = Array.isArray(popupImageFile.value) ? popupImageFile.value[0] : popupImageFile.value
+  if (!file) return
+  uploadingPopupImage.value = true
+  formError.value = ''
   try {
-    const { data } = await http.get('/admin/activity-logs', {
-      params: {
-        page: logPage.value,
-        action: logAction.value || undefined,
-      },
+    const body = new FormData()
+    body.append('image', file)
+    const { data } = await http.post('/admin/settings/site-popup-image', body, {
       skipErrorToast: true,
+      skipSuccessToast: true,
     })
-    logs.value = data.data || []
-    logMeta.value = data.meta || logMeta.value
+    applySettings(data.data || {})
+    popupImageFile.value = null
+    ui.success(t('sitePopupImageUpdated'))
   } catch (error) {
-    message.value = apiError(error).message || t('requestFailed')
+    formError.value = apiError(error).message || t('requestFailed')
   } finally {
-    logLoading.value = false
+    uploadingPopupImage.value = false
   }
 }
 
-function openLogs() {
-  tab.value = 'logs'
-  if (!logs.value.length) loadLogs()
+async function removePopupImage() {
+  removingPopupImage.value = true
+  formError.value = ''
+  try {
+    const { data } = await http.delete('/admin/settings/site-popup-image', {
+      skipErrorToast: true,
+      skipSuccessToast: true,
+    })
+    applySettings(data.data || {})
+    ui.success(t('sitePopupImageRemoved'))
+  } catch (error) {
+    formError.value = apiError(error).message || t('requestFailed')
+  } finally {
+    removingPopupImage.value = false
+  }
 }
 
-function applyLogFilter() {
-  logPage.value = 1
-  loadLogs()
-}
 </script>
 
 <template>
   <div class="admin-ui">
     <AdminPageHero :title="t('settings')">
-      <template v-if="tab === 'settings'" #actions>
+      <template #actions>
         <button
           type="button"
           class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
@@ -262,19 +271,10 @@ function applyLogFilter() {
     <v-alert v-if="message" type="error" variant="tonal" class="mb-4" density="compact">{{ message }}</v-alert>
     <v-alert v-if="formError" type="error" variant="tonal" class="mb-4" density="compact">{{ formError }}</v-alert>
 
-    <section class="admin-ui__panel">
-      <v-tabs v-model="tab" color="#0f5c66" show-arrows>
-        <v-tab value="settings" @click="tab = 'settings'">{{ t('settings') }}</v-tab>
-        <v-tab value="logs" @click="openLogs">{{ t('activityLogs') }}</v-tab>
-      </v-tabs>
-    </section>
-
-    <v-window v-model="tab">
-      <v-window-item value="settings">
-        <div v-if="loading" class="admin-ui__loading">
-          <v-progress-circular indeterminate color="#0f5c66" size="36" />
-        </div>
-        <template v-else>
+    <div v-if="loading" class="admin-ui__loading">
+      <v-progress-circular indeterminate color="#0f5c66" size="36" />
+    </div>
+    <template v-else>
           <section class="admin-ui__panel">
             <div class="admin-ui__panel-head">
               <h2>{{ t('platformName') }}</h2>
@@ -410,6 +410,47 @@ function applyLogFilter() {
                 :disabled="!settings.entry_popup.enabled"
               />
             </div>
+            <div class="admin-ui__panel-head mt-4">
+              <div>
+                <h3>{{ t('sitePopupImage') }}</h3>
+                <p>{{ t('sitePopupImageLead') }}</p>
+              </div>
+            </div>
+            <v-img
+              v-if="settings.entry_popup.image_url"
+              :src="settings.entry_popup.image_url"
+              max-height="180"
+              cover
+              class="mb-3 rounded-lg"
+            />
+            <v-file-input
+              v-model="popupImageFile"
+              :label="t('sitePopupUploadImage')"
+              accept="image/png,image/jpeg,image/webp"
+              prepend-icon="mdi-image"
+              show-size
+              :disabled="!settings.entry_popup.enabled"
+              class="mb-2"
+            />
+            <div class="admin-ui__row-actions">
+              <button
+                type="button"
+                class="admin-ui__btn admin-ui__btn--primary"
+                :disabled="!settings.entry_popup.enabled || uploadingPopupImage || !popupImageFile"
+                @click="uploadPopupImage"
+              >
+                {{ uploadingPopupImage ? t('loading') : t('upload') }}
+              </button>
+              <button
+                v-if="settings.entry_popup.image_url"
+                type="button"
+                class="admin-ui__btn admin-ui__btn--danger"
+                :disabled="!settings.entry_popup.enabled || removingPopupImage"
+                @click="removePopupImage"
+              >
+                {{ removingPopupImage ? t('loading') : t('remove') }}
+              </button>
+            </div>
           </section>
 
           <section class="admin-ui__panel">
@@ -468,7 +509,7 @@ function applyLogFilter() {
               v-if="settings.bkash_payment?.qr_url"
               :src="settings.bkash_payment.qr_url"
               alt=""
-              class="admin-dialog__cover mb-3"
+              class="settings-bkash-qr mb-3"
             >
             <v-file-input
               v-model="bkashQrFile"
@@ -521,73 +562,28 @@ function applyLogFilter() {
             </ul>
           </section>
 
-          <div class="admin-ui__form-actions">
-            <button
-              type="button"
-              class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
-              :disabled="saving"
-              @click="saveSettings"
-            >
-              {{ t('save') }}
-            </button>
-          </div>
-        </template>
-      </v-window-item>
-
-      <v-window-item value="logs">
-        <section class="admin-ui__panel">
-          <form @submit.prevent="applyLogFilter">
-            <div class="admin-ui__filters admin-ui__filters--3">
-              <label class="admin-ui__field">
-                <span>{{ t('actionFilter') }}</span>
-                <input v-model="logAction" type="search">
-              </label>
-            </div>
-            <div class="admin-ui__filter-actions">
-              <button type="submit" class="admin-ui__btn admin-ui__btn--solid">{{ t('filter') }}</button>
-            </div>
-          </form>
-        </section>
-
-        <section class="admin-ui__panel">
-          <div class="admin-ui__panel-head">
-            <div>
-              <h2>{{ t('activityLogs') }}</h2>
-              <p>{{ t('reportTotal', { count: logMeta.total || logs.length }) }}</p>
-            </div>
-          </div>
-          <div v-if="logLoading" class="admin-ui__loading">
-            <v-progress-circular indeterminate color="#0f5c66" size="36" />
-          </div>
-          <div v-else-if="!logs.length" class="admin-ui__empty">
-            <p>{{ t('noActivityLogs') }}</p>
-          </div>
-          <div v-else class="admin-ui__list">
-            <article v-for="row in logs" :key="row.id" class="admin-ui__row">
-              <div class="admin-ui__row-main">
-                <div>
-                  <h3 class="admin-ui__row-title">{{ row.action }}</h3>
-                  <p class="admin-ui__row-meta">{{ row.description }}</p>
-                  <div class="admin-ui__chips">
-                    <span class="admin-ui__chip">{{ row.user?.name || '—' }}</span>
-                    <span class="admin-ui__chip">{{ row.created_at }}</span>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </div>
-          <div v-if="logMeta.last_page > 1" class="admin-ui__pager">
-            <v-pagination
-              v-model="logPage"
-              :length="logMeta.last_page"
-              active-color="#0f5c66"
-              total-visible="5"
-              density="comfortable"
-              @update:model-value="loadLogs"
-            />
-          </div>
-        </section>
-      </v-window-item>
-    </v-window>
+      <div class="admin-ui__form-actions">
+        <button
+          type="button"
+          class="admin-ui__btn admin-ui__btn--primary admin-ui__btn--block admin-ui__btn--block-sm"
+          :disabled="saving"
+          @click="saveSettings"
+        >
+          {{ t('save') }}
+        </button>
+      </div>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.settings-bkash-qr {
+  display: block;
+  width: min(140px, 42vw);
+  height: auto;
+  border-radius: 0.55rem;
+  border: 1px solid #d9e6e8;
+  background: #f4f8f9;
+  object-fit: contain;
+}
+</style>

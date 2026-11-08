@@ -228,8 +228,8 @@ onMounted(load)
   min-height: 44px;
   padding: 0 1rem;
   border-radius: 0.65rem;
-  background: #f5c518;
-  color: #1a1400;
+  background: #e54c10;
+  color: #fff;
   text-decoration: none;
   font-size: 0.86rem;
   font-weight: 800;

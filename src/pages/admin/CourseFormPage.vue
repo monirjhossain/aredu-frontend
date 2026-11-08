@@ -270,7 +270,7 @@ function onFileChange(event) {
                 <h2>{{ t('courseBasics') }}</h2>
                 <p>{{ t('courseBasicsLead') }}</p>
               </div>
-              <label class="course-form__publish">
+              <label class="admin-ui__switch course-form__publish">
                 <input v-model="form.is_published" type="checkbox">
                 <span>{{ t('published') }}</span>
               </label>
@@ -534,16 +534,10 @@ function onFileChange(event) {
 }
 
 .course-form__publish {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2.35rem;
-  padding: 0 0.75rem;
+  padding: 0.15rem 0.75rem 0.15rem 0.45rem;
   border-radius: 999px;
   background: var(--admin-teal-soft);
   color: var(--admin-teal);
-  font-size: 0.82rem;
-  font-weight: 700;
 }
 
 .course-form__exam {

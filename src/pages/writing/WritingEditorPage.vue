@@ -219,7 +219,7 @@ async function submit() {
           </div>
         </div>
         <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #e7eef0">
-          <span :style="{ display: 'block', height: '100%', width: `${progressPct}%`, background: meetsMinimum ? '#16a34a' : '#f5c518' }" />
+          <span :style="{ display: 'block', height: '100%', width: `${progressPct}%`, background: meetsMinimum ? '#16a34a' : '#e54c10' }" />
         </div>
       </div>
 

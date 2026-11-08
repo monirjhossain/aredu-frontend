@@ -235,7 +235,7 @@ function scrollToCourses() {
         </div>
 
         <div v-if="loading" class="land-loader">
-          <v-progress-circular indeterminate color="#f5c518" size="36" />
+          <v-progress-circular indeterminate color="#e54c10" size="36" />
         </div>
         <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
         <template v-else>
@@ -454,8 +454,8 @@ function scrollToCourses() {
   --ink: #102a2e;
   --muted: #5b7378;
   --line: #d9e6e8;
-  --yellow: #f5c518;
-  --yellow-ink: #1a1400;
+  --yellow: #e54c10;
+  --yellow-ink: #ffffff;
   --teal: #0f5c66;
   --deep: #0a2a3a;
   --shell: 960px;
@@ -505,7 +505,7 @@ function scrollToCourses() {
   left: -8%;
   bottom: 4%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 197, 24, 0.38), transparent 68%);
+  background: radial-gradient(circle, rgba(229, 76, 16, 0.38), transparent 68%);
   filter: blur(28px);
   pointer-events: none;
   animation: land-glow 10s ease-in-out infinite alternate;
@@ -545,7 +545,7 @@ function scrollToCourses() {
   height: 3px;
   margin: 0 0 1rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--yellow), rgba(245, 197, 24, 0.12));
+  background: linear-gradient(90deg, var(--yellow), rgba(229, 76, 16, 0.12));
   transform-origin: left center;
   opacity: 0;
   animation: land-rule 900ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
@@ -597,7 +597,7 @@ function scrollToCourses() {
 .land-btn--primary {
   background: var(--yellow);
   color: var(--yellow-ink);
-  box-shadow: 0 10px 24px rgba(245, 197, 24, 0.28);
+  box-shadow: 0 10px 24px rgba(229, 76, 16, 0.28);
 }
 
 .land-btn--ghost {
@@ -662,7 +662,7 @@ function scrollToCourses() {
 }
 
 .land-kicker--light {
-  color: rgba(245, 197, 24, 0.95);
+  color: rgba(229, 76, 16, 0.95);
 }
 
 .land-chips {
@@ -818,13 +818,13 @@ function scrollToCourses() {
   height: 0.55rem;
   border-radius: 50%;
   background: var(--yellow);
-  box-shadow: 0 0 0 4px rgba(245, 197, 24, 0.18);
+  box-shadow: 0 0 0 4px rgba(229, 76, 16, 0.18);
   flex: 0 0 auto;
 }
 
 .land-results {
   background:
-    radial-gradient(circle at left bottom, rgba(245, 197, 24, 0.12), transparent 36%),
+    radial-gradient(circle at left bottom, rgba(229, 76, 16, 0.12), transparent 36%),
     #f7fafb;
 }
 
@@ -871,7 +871,7 @@ function scrollToCourses() {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 12% 20%, rgba(245, 197, 24, 0.16), transparent 34%),
+    radial-gradient(circle at 12% 20%, rgba(229, 76, 16, 0.16), transparent 34%),
     radial-gradient(circle at 88% 70%, rgba(255, 255, 255, 0.08), transparent 36%);
   pointer-events: none;
 }

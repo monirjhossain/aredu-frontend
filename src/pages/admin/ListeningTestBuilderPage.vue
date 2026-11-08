@@ -792,7 +792,7 @@ function onFile(event) {
 .listening-builder__workspace-head {
   padding: 0.95rem 1rem;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.12), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(229, 76, 16, 0.12), transparent 40%),
     linear-gradient(135deg, #f7fbfb, #eef6f7);
 }
 

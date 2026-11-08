@@ -184,7 +184,7 @@ async function start() {
   --muted: #5b7378;
   --line: #d9e6e8;
   --teal: #0f5c66;
-  --yellow: #f5c518;
+  --yellow: #e54c10;
   display: grid;
   gap: 0.9rem;
   padding-bottom: 5.5rem;
@@ -230,7 +230,7 @@ async function start() {
   padding: 1.25rem 1.2rem 1.3rem;
   border-radius: 1.15rem;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.28), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(229, 76, 16, 0.28), transparent 42%),
     linear-gradient(135deg, #0b3d36 0%, #0f5c66 52%, #0a2a3a 100%);
   color: #fff;
   overflow: hidden;
@@ -256,7 +256,7 @@ async function start() {
 
 .rmock-intro__badge--free {
   background: var(--yellow);
-  color: #1a1400;
+  color: #fff;
 }
 
 .rmock-intro__eyebrow {
@@ -429,7 +429,7 @@ async function start() {
 
 .rmock-intro__start--hero {
   background: var(--yellow);
-  color: #1a1400;
+  color: #fff;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
 

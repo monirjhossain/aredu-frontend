@@ -527,7 +527,7 @@ onMounted(async () => {
           </div>
           <small v-if="fieldErrors.roles?.length" class="admin-accounts__error">{{ fieldErrors.roles[0] }}</small>
         </div>
-        <label class="admin-accounts__switch">
+        <label class="admin-ui__switch">
           <input v-model="form.is_active" type="checkbox">
           <span>{{ t('accountActive') }}</span>
         </label>
@@ -690,14 +690,6 @@ onMounted(async () => {
   background: var(--admin-teal);
   border-color: var(--admin-teal);
   color: #fff;
-}
-
-.admin-accounts__switch {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-height: 44px;
-  font-weight: 650;
 }
 
 @media (min-width: 900px) {

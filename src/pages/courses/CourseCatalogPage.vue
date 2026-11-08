@@ -313,7 +313,7 @@ watch(isFreeCatalog, (free) => {
         </div>
 
         <div v-if="loading && !courses.length" class="cat-loader">
-          <v-progress-circular indeterminate color="#f5c518" size="36" />
+          <v-progress-circular indeterminate color="#e54c10" size="36" />
         </div>
         <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
         <div v-else-if="!courses.length" class="cat-empty">
@@ -397,8 +397,8 @@ watch(isFreeCatalog, (free) => {
   --ink: #102a2e;
   --muted: #5b7378;
   --line: #d9e6e8;
-  --yellow: #f5c518;
-  --yellow-ink: #1a1400;
+  --yellow: #e54c10;
+  --yellow-ink: #ffffff;
   --teal: #0f5c66;
   --deep: #0a2a3a;
   --shell: 1080px;
@@ -446,7 +446,7 @@ watch(isFreeCatalog, (free) => {
   left: -6%;
   bottom: -20%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 197, 24, 0.36), transparent 68%);
+  background: radial-gradient(circle, rgba(229, 76, 16, 0.36), transparent 68%);
   filter: blur(24px);
   pointer-events: none;
   animation: cat-glow 9s ease-in-out infinite alternate;
@@ -473,7 +473,7 @@ watch(isFreeCatalog, (free) => {
   height: 2px;
   margin: 0 0 0.55rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--yellow), rgba(245, 197, 24, 0.12));
+  background: linear-gradient(90deg, var(--yellow), rgba(229, 76, 16, 0.12));
   transform-origin: left center;
   opacity: 0;
   animation: cat-rule 850ms cubic-bezier(0.22, 1, 0.36, 1) 280ms both;
@@ -597,7 +597,7 @@ watch(isFreeCatalog, (free) => {
   font-size: 0.9rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(245, 197, 24, 0.2);
+  box-shadow: 0 4px 12px rgba(229, 76, 16, 0.2);
 }
 
 .cat-btn--ghost {

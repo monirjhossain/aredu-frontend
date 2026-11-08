@@ -643,7 +643,7 @@ function buildDonut(items) {
   padding: 0.75rem 0.95rem;
   border-radius: 0.85rem;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.18), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(229, 76, 16, 0.18), transparent 42%),
     linear-gradient(135deg, #0f5c66 0%, #14919b 55%, #0a3d44 100%);
   color: #f7fbfb;
   box-shadow: 0 10px 24px rgba(15, 92, 102, 0.18);

@@ -296,7 +296,7 @@ const fullMocks = computed(() => analytics.value?.full_mock_sessions || [])
   padding: 1.1rem 1.15rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 45%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.22), transparent 45%),
     linear-gradient(135deg, #0f5c66, #147a86 55%, #0c4a52);
   color: #fff;
 }

@@ -223,7 +223,7 @@ function formatShortDate(value) {
 }
 
 .m-course__avatars span:nth-child(2) {
-  background: linear-gradient(135deg, #f5c518, #e8a317);
+  background: linear-gradient(135deg, #e54c10, #e8a317);
 }
 
 .m-course__avatars span:nth-child(3) {
@@ -248,7 +248,7 @@ function formatShortDate(value) {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: #f5c518;
+  background: #e54c10;
   flex: 0 0 auto;
 }
 
@@ -316,8 +316,8 @@ function formatShortDate(value) {
   display: inline-flex;
   align-items: center;
   padding: 0.28rem 0.55rem 0.28rem 0.75rem;
-  background: #f5c518;
-  color: #1a1400;
+  background: #e54c10;
+  color: #fff;
   font-size: 0.7rem;
   font-weight: 800;
   clip-path: polygon(10px 0%, 100% 0%, 100% 100%, 10px 100%, 10px 75%, 0 50%, 10px 25%);

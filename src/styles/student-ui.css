@@ -10,10 +10,10 @@
   --student-line: #d9e6e8;
   --student-paper: #f4f8f9;
   --student-surface: #fff;
-  --student-yellow: #f5c518;
-  --student-yellow-ink: #1a1400;
+  --student-yellow: #e54c10;
+  --student-yellow-ink: #ffffff;
   --student-yellow-soft: #fff8db;
-  --student-yellow-line: rgba(245, 197, 24, 0.45);
+  --student-yellow-line: rgba(229, 76, 16, 0.45);
   --student-danger: #c0392b;
   --student-font: 'Plus Jakarta Sans', 'Source Sans 3', 'Nirmala UI', sans-serif;
   --student-shadow: 0 8px 20px rgba(11, 27, 52, 0.04);
@@ -35,7 +35,7 @@
   padding: 1.2rem 1.25rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.22), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.22), transparent 42%),
     linear-gradient(135deg, #0b3d36 0%, var(--student-teal) 55%, var(--student-teal-deep) 100%);
   color: #fff;
 }

@@ -360,7 +360,7 @@ function reportIcon(key) {
   padding: 1.15rem 1.2rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 197, 24, 0.16), transparent 42%),
+    radial-gradient(circle at 100% 0%, rgba(229, 76, 16, 0.16), transparent 42%),
     linear-gradient(135deg, #0f5c66 0%, #14919b 55%, #0a3d44 100%);
   color: #f7fbfb;
   box-shadow: 0 16px 40px rgba(15, 92, 102, 0.2);
@@ -416,8 +416,8 @@ function reportIcon(key) {
 
 .reports__export {
   width: 100%;
-  background: #f5c518;
-  color: #1a1400;
+  background: #e54c10;
+  color: #fff;
 }
 
 @media (min-width: 720px) {

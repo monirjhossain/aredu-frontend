@@ -158,7 +158,7 @@ watch(() => route.query.module, (module) => {
           </div>
 
           <div v-if="loading" class="fprac-loader">
-            <v-progress-circular indeterminate color="#f5c518" size="36" />
+            <v-progress-circular indeterminate color="#e54c10" size="36" />
           </div>
           <v-alert v-else-if="message" type="error" variant="tonal">{{ message }}</v-alert>
           <div v-else-if="!activeList.length" class="fprac-empty">
@@ -220,8 +220,8 @@ watch(() => route.query.module, (module) => {
   --ink: #102a2e;
   --muted: #5b7378;
   --line: #d9e6e8;
-  --yellow: #f5c518;
-  --yellow-ink: #1a1400;
+  --yellow: #e54c10;
+  --yellow-ink: #ffffff;
   --teal: #0f5c66;
   --shell: 1080px;
   color: var(--ink);
@@ -278,7 +278,7 @@ watch(() => route.query.module, (module) => {
   height: 2px;
   margin: 0 0 0.6rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--yellow), rgba(245, 197, 24, 0.15));
+  background: linear-gradient(90deg, var(--yellow), rgba(229, 76, 16, 0.15));
 }
 
 .fprac-hero h1 {
@@ -321,7 +321,7 @@ watch(() => route.query.module, (module) => {
 .fprac-btn--primary {
   background: var(--yellow);
   color: var(--yellow-ink);
-  box-shadow: 0 8px 18px rgba(245, 197, 24, 0.25);
+  box-shadow: 0 8px 18px rgba(229, 76, 16, 0.25);
 }
 
 .fprac-btn--ghost {
@@ -529,7 +529,7 @@ watch(() => route.query.module, (module) => {
   padding: 1.15rem 1rem;
   border-radius: 1rem;
   background:
-    radial-gradient(circle at top right, rgba(245, 197, 24, 0.18), transparent 42%),
+    radial-gradient(circle at top right, rgba(229, 76, 16, 0.18), transparent 42%),
     linear-gradient(135deg, #0f5c66 0%, #14919b 55%, #0a3d44 100%);
   color: #fff;
 }
